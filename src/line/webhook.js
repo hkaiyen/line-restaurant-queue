@@ -1,18 +1,18 @@
 /**
- * LINE 餐廳候補位系統 - Webhook 處理器
+ * LINE 餐廳候補位系統 - Webhook 處理器（LINE SDK v11 相容版）
  */
 
-const line = require('@line/bot-sdk');
+const { LineBotClient, middleware, validateSignature } = require('@line/bot-sdk');
 const express = require('express');
 const router = express.Router();
 
 const lineConfig = require('../../config/line');
 
 // =====================================================
-// LINE Client
+// LINE Client（SDK v11 語法）
 // =====================================================
 
-const lineClient = new line.Client({
+const lineClient = new LineBotClient({
     channelAccessToken: lineConfig.messagingApi.accessToken,
     channelSecret: lineConfig.messagingApi.channelSecret,
 });
