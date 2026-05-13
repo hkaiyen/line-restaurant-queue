@@ -13,7 +13,7 @@ const lineConfig = require('../../config/line');
 // =====================================================
 
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
-const MINIMAX_API_URL = 'https://api.minimax.chat/v1/text/chatcompletion_pro';
+const MINIMAX_API_URL = 'https://api.minimax.io/anthropic/v1/messages';
 
 async function askMiniMax(userMessage) {
     console.log('🤖 askMiniMax called with:', userMessage);
@@ -40,23 +40,24 @@ async function askMiniMax(userMessage) {
 請用繁體中文回答，友善且專業。`;
 
     try {
-        const urlWithGroup = MINIMAX_API_URL + '?GroupId=your_group_id';
-        console.log('📡 Calling MiniMax API:', urlWithGroup);
+        console.log('📡 Calling MiniMax API:', MINIMAX_API_URL);
         
-        const response = await fetch(urlWithGroup, {
+        const response = await fetch(MINIMAX_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'x-api-key': MINIMAX_API_KEY,
+                'anthropic-version': '2023-06-01',
                 'Authorization': `Bearer ${MINIMAX_API_KEY}`
             },
             body: JSON.stringify({
-                model: 'abab6.5s-chat',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userMessage }
-                ],
+                model: 'MiniMax-M2.7',
+                max_tokens: 500,
                 temperature: 0.7,
-                max_tokens: 500
+                system: systemPrompt,
+                messages: [
+                    { role: 'user', content: userMessage }
+                ]
             })
         });
 
@@ -71,31 +72,7 @@ async function askMiniMax(userMessage) {
         const data = await response.json();
         console.log('📦 MiniMax response data:', JSON.stringify(data, null, 2));
         
-        // 嘗試多種可能的回應格式
-        let reply = '';
-        
-        // 格式 1: OpenAI style
-        if (data.choices?.[0]?.message?.content) {
-            reply = data.choices[0].message.content;
-        }
-        // 格式 2: MiniMax style with text field
-        else if (data.choices?.[0]?.text) {
-            reply = data.choices[0].text;
-        }
-        // 格式 3: MiniMax style with output
-        else if (data.output) {
-            reply = typeof data.output === 'string' ? data.output : data.output?.text || JSON.stringify(data.output);
-        }
-        // 格式 4: raw content
-        else if (data.content) {
-            reply = data.content;
-        }
-        // 格式 5: 檢查整個 data
-        else {
-            console.log('⚠️ Unexpected response format, searching for content...');
-            console.log('Data keys:', Object.keys(data));
-            reply = '⚠️ 無法理解，請重新輸入';
-        }
+        let reply = data.content?.[0]?.text || '⚠️ 無法理解，請重新輸入';
         
         console.log('✅ Generated reply:', reply);
         return reply;
