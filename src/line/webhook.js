@@ -186,8 +186,8 @@ async function handleBeacon(event, { lineClient, repositories, flexMessages }) {
 const express = require('express');
 const router = express.Router();
 
-// POST /webhook - 接收 LINE Webhook
-router.post('/webhook', async (req, res) => {
+// POST / - 接收 LINE Webhook
+router.post('/', async (req, res) => {
     // 生產環境啟用簽章驗證
     if (lineConfig.webhook.verifySignature) {
         const signature = req.headers['x-line-signature'];
@@ -202,8 +202,9 @@ router.post('/webhook', async (req, res) => {
     await handleWebhook(req, res);
 });
 
-// GET /webhook - LINE 驗證 Webhook URL 用
-router.get('/webhook', (req, res) => {
+
+// GET / - LINE 驗證 Webhook URL 用
+router.get('/', (req, res) => {
     res.status(200).send('Webhook endpoint is active');
 });
 
