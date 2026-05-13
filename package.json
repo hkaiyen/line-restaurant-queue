@@ -1,0 +1,19 @@
+{
+  "name": "line-restaurant-queue-system",
+  "version": "1.0.0",
+  "description": "LINE 餐廳候補位系統",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^11.0.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.20.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

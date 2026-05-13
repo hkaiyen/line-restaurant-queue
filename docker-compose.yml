@@ -1,0 +1,64 @@
+# =====================================================
+# LINE 餐廳候補位系統 - Docker Compose 設定
+# 用途：本地開發環境
+# 日期：2026-05-13
+# 作者：小咪技術研發助理
+# =====================================================
+
+version: '3.8'
+
+services:
+  # PostgreSQL 資料庫
+  postgres:
+    image: postgres:16-alpine
+    container_name: line_queue_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: line_queue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro  # 自動執行初始化 SQL
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 快取/佇列
+  redis:
+    image: redis:7-alpine
+    container_name: line_queue_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 可選：pgAdmin 管理介面
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: line_queue_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@linequeue.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

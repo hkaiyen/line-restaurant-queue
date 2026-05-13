@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>排隊進度 - LINE 餐廳候補位</title>
+    <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+    <style>
+        :root {
+            --primary: #00B900;
+            --primary-dark: #009900;
+            --text: #333;
+            --text-light: #666;
+            --bg: #f5f5f5;
+            --white: #fff;
+            --border: #e0e0e0;
+            --warning: #ffc107;
+            --warning-bg: #fff3cd;
+            --success: #28a745;
+            --danger: #dc3545;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .queue-display {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .queue-number {
+            font-size: 64px;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .queue-label {
+            font-size: 18px;
+            color: var(--text-light);
+        }
+
+        .position-section {
+            display: flex;
+            justify-content: space-around;
+            margin: 24px 0;
+            padding: 20px;
+            background: var(--bg);
+            border-radius: 12px;
+        }
+
+        .position-item {
+            text-align: center;
+        }
+
+        .position-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .position-label {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-waiting {
+            background: var(--warning-bg);
+            color: #856404;
+        }
+
+        .status-called {
+            background: #e7f3ff;
+            color: #004085;
+        }
+
+        .status-served {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .restaurant-info {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .restaurant-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .restaurant-details h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .restaurant-details p {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .notice {
+            background: var(--warning-bg);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .notice-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 8px;
+        }
+
+        .notice-content {
+            font-size: 14px;
+            color: #856404;
+            line-height: 1.5;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-danger {
+            background: var(--white);
+            color: var(--danger);
+            border: 2px solid var(--danger);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--text);
+            border: 2px solid var(--border);
+            margin-top: 12px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .no-queue {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .no-queue-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .no-queue h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .no-queue p {
+            color: var(--text-light);
+            margin-bottom: 24px;
+        }
+
+        .history-list {
+            margin-top: 16px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-restaurant {
+            font-weight: 600;
+        }
+
+        .history-time {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-dot.waiting { background: var(--warning); }
+        .status-dot.called { background: #007bff; }
+        .status-dot.served { background: var(--success); }
+        .status-dot.cancelled { background: var(--danger); }
+
+        .called-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .called-overlay.show {
+            display: flex;
+        }
+
+        .called-card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            max-width: 340px;
+            width: 90%;
+        }
+
+        .called-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary), #00d900);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 50px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .called-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .called-number {
+            font-size: 64px;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 16px 0;
+        }
+
+        .called-message {
+            color: var(--text-light);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .confirm-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .auto-refresh {
+            text-align: center;
+            padding: 8px;
+            color: var(--text-light);
+            font-size: 12px;
+        }
+
+        .error-msg {
+            background: #fff0f0;
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Loading -->
+        <div id="loading" class="loading show">
+            <div class="spinner"></div>
+            <p>載入排隊資料中...</p>
+        </div>
+
+        <!-- 叫號通知彈窗 -->
+        <div id="calledOverlay" class="called-overlay">
+            <div class="called-card">
+                <div class="called-icon">📢</div>
+                <div class="called-title">輪到您了！</div>
+                <div class="called-number" id="calledNumber">第 -- 號</div>
+                <div class="called-message">
+                    請至櫃檯報到<br>
+                    <strong id="calledRestaurant">餐廳名稱</strong>
+                </div>
+                <button class="confirm-btn" onclick="closeCalledOverlay()">
+                    確認報到
+                </button>
+            </div>
+        </div>
+
+        <!-- 主內容 -->
+        <div id="mainContent" style="display: none;">
+            <div class="header">
+                <h1>📋 排隊進度</h1>
+                <p id="lastUpdate" class="auto-refresh">自動更新中...</p>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <!-- 無排隊資料 -->
+            <div id="noQueueSection" class="card" style="display: none;">
+                <div class="no-queue">
+                    <div class="no-queue-icon">📭</div>
+                    <h2>目前沒有排隊資料</h2>
+                    <p>您還沒加入任何餐廳的排隊</p>
+                    <button class="btn btn-primary" onclick="location.href='join.html'">
+                        去排隊
+                    </button>
+                    <button class="btn btn-secondary" onclick="showHistory()">
+                        查看排隊歷史
+                    </button>
+                </div>
+            </div>
+
+            <!-- 排隊中 -->
+            <div id="queueSection" style="display: none;">
+                <div class="card">
+                    <div class="restaurant-info" id="restaurantInfo">
+                        <div class="restaurant-icon">🍜</div>
+                        <div class="restaurant-details">
+                            <h3 id="restaurantName">載入中...</h3>
+                            <p id="restaurantAddress">--</p>
+                        </div>
+                    </div>
+
+                    <div class="queue-display">
+                        <div class="queue-number" id="queueNumber">--</div>
+                        <div class="queue-label">您的排隊號碼</div>
+                    </div>
+
+                    <div class="position-section">
+                        <div class="position-item">
+                            <div class="position-value" id="positionAhead">--</div>
+                            <div class="position-label">前方等待組數</div>
+                        </div>
+                        <div class="position-item">
+                            <div class="position-value" id="waitTime">--</div>
+                            <div class="position-label">預估等候（分）</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; margin: 16px 0;">
+                        <span class="status-badge status-waiting" id="statusBadge">
+                            <span class="status-dot waiting"></span>
+                            <span id="statusText">等待中</span>
+                        </span>
+                    </div>
+
+                    <div class="notice" id="noticeSection" style="display: none;">
+                        <div class="notice-title">⚠️ 貼心提醒</div>
+                        <div class="notice-content" id="noticeContent">
+                            請注意手機通知，輪到您時會即時推播
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-danger" onclick="cancelQueue()">
+                        取消排隊
+                    </button>
+                </div>
+
+                <button class="btn btn-secondary" onclick="showHistory()">
+                    查看排隊歷史
+                </button>
+            </div>
+
+            <!-- 排隊歷史 -->
+            <div id="historySection" class="card" style="display: none;">
+                <h3 style="margin-bottom: 16px;">📜 排隊歷史</h3>
+                <div id="historyList" class="history-list">
+                    <!-- 動態載入 -->
+                </div>
+                <button class="btn btn-secondary" onclick="hideHistory()">
+                    返回
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // LIFF SDK 初始化
+        // =====================================================
+        
+        const LIFF_ID = {
+            myQueue: '2006710601-kPnl5Dvd',  // 請根據實際 LIFF ID 修改
+        };
+
+        const API_BASE = window.location.origin;
+        let currentUserId = null;
+        let currentQueueEntry = null;
+        let pollInterval = null;
+
+        async function initLIFF() {
+            try {
+                await liff.init({ 
+                    liffId: LIFF_ID.myQueue,
+                    withLoginOnExternalBrowser: true 
+                });
+                
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    currentUserId = profile.userId;
+                    console.log('✅ LIFF 登入成功，使用者：', profile.displayName);
+                } else {
+                    // 從 URL 參數取得 userId（開發模式）
+                    const urlParams = new URLSearchParams(window.location.search);
+                    currentUserId = urlParams.get('userId') || 'UtestUser123456';
+                    liff.login();
+                }
+            } catch (error) {
+                console.error('❌ LIFF 初始化失敗：', error);
+                const urlParams = new URLSearchParams(window.location.search);
+                currentUserId = urlParams.get('userId') || 'UtestUser123456';
+            }
+
+            loadQueueStatus();
+            
+            // 每 30 秒自動更新
+            pollInterval = setInterval(loadQueueStatus, 30000);
+        }
+
+        // =====================================================
+        // API 呼叫
+        // =====================================================
+
+        async function loadQueueStatus() {
+            try {
+                // 嘗試從 URL 取得 restaurantId
+                const urlParams = new URLSearchParams(window.location.search);
+                const restaurantId = urlParams.get('restaurantId');
+
+                const endpoint = restaurantId 
+                    ? `${API_BASE}/liff/queue/status?restaurantId=${restaurantId}&userId=${currentUserId}`
+                    : `${API_BASE}/liff/queue/status?userId=${currentUserId}`;
+
+                const response = await fetch(endpoint);
+                const result = await response.json();
+
+                if (result.success && result.data.inQueue) {
+                    showQueue(result.data);
+                } else {
+                    showNoQueue();
+                }
+            } catch (error) {
+                console.error('載入排隊狀態失敗：', error);
+                // 示範模式
+                showDemoQueue();
+            }
+
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('lastUpdate').textContent = `最後更新：${new Date().toLocaleTimeString('zh-TW')}`;
+        }
+
+        function showQueue(data) {
+            currentQueueEntry = data.queueEntry;
+            
+            document.getElementById('noQueueSection').style.display = 'none';
+            document.getElementById('queueSection').style.display = 'block';
+            document.getElementById('historySection').style.display = 'none';
+
+            // 更新餐廳資訊
+            document.getElementById('restaurantName').textContent = data.restaurant.name;
+            document.getElementById('restaurantAddress').textContent = data.restaurant.address || '';
+
+            // 更新排隊號碼
+            document.getElementById('queueNumber').textContent = `第 ${data.queueEntry.queueNumber} 號`;
+
+            // 更新順位
+            document.getElementById('positionAhead').textContent = data.queueEntry.position - 1;
+            document.getElementById('waitTime').textContent = data.queueEntry.estimatedWaitMinutes || '?';
+
+            // 更新狀態
+            updateStatusBadge(data.queueEntry.status);
+
+            // 如果是被叫號狀態，顯示通知
+            if (data.queueEntry.status === 'called') {
+                showCalledNotification(data.queueEntry.queueNumber, data.restaurant.name);
+            }
+        }
+
+        function showNoQueue() {
+            document.getElementById('noQueueSection').style.display = 'block';
+            document.getElementById('queueSection').style.display = 'none';
+            document.getElementById('historySection').style.display = 'none';
+        }
+
+        function showDemoQueue() {
+            showQueue({
+                queueEntry: {
+                    id: 'demo-entry-1',
+                    queueNumber: 15,
+                    partySize: 2,
+                    status: 'waiting',
+                    position: 3,
+                    estimatedWaitMinutes: 45,
+                },
+                restaurant: {
+                    name: '巷口牛肉麵',
+                    address: '台北市大安區忠孝東路100號',
+                    avgMealDuration: 45,
+                }
+            });
+        }
+
+        function updateStatusBadge(status) {
+            const badge = document.getElementById('statusBadge');
+            const text = document.getElementById('statusText');
+            
+            badge.className = 'status-badge';
+            
+            switch(status) {
+                case 'waiting':
+                    badge.classList.add('status-waiting');
+                    text.textContent = '等待中';
+                    break;
+                case 'called':
+                    badge.classList.add('status-called');
+                    text.textContent = '已叫號';
+                    break;
+                case 'served':
+                    badge.classList.add('status-served');
+                    text.textContent = '已入座';
+                    break;
+                default:
+                    badge.classList.add('status-waiting');
+                    text.textContent = status;
+            }
+        }
+
+        function showCalledNotification(queueNumber, restaurantName) {
+            document.getElementById('calledNumber').textContent = `第 ${queueNumber} 號`;
+            document.getElementById('calledRestaurant').textContent = restaurantName;
+            document.getElementById('calledOverlay').classList.add('show');
+        }
+
+        function closeCalledOverlay() {
+            document.getElementById('calledOverlay').classList.remove('show');
+        }
+
+        // =====================================================
+        // 取消排隊
+        // =====================================================
+
+        async function cancelQueue() {
+            if (!currentQueueEntry) return;
+
+            if (!confirm('確定要取消排隊嗎？取消後需重新排隊。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/liff/queue/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUserId,
+                        queueEntryId: currentQueueEntry.id,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('已取消排隊');
+                    showNoQueue();
+                } else {
+                    alert(result.error || '取消失敗');
+                }
+            } catch (error) {
+                console.error('取消排隊失敗：', error);
+                alert('取消失敗，請稍後再試');
+            }
+        }
+
+        // =====================================================
+        // 排隊歷史
+        // =====================================================
+
+        function showHistory() {
+            document.getElementById('queueSection').style.display = 'none';
+            document.getElementById('historySection').style.display = 'block';
+            
+            // 載入歷史（示範資料）
+            document.getElementById('historyList').innerHTML = `
+                <div class="history-item">
+                    <div>
+                        <div class="history-restaurant">巷口牛肉麵</div>
+                        <div class="history-time">2026/05/10 12:30</div>
+                    </div>
+                    <span style="color: var(--success);">已完成</span>
+                </div>
+                <div class="history-item">
+                    <div>
+                        <div class="history-restaurant">幸福小館</div>
+                        <div class="history-time">2026/05/08 18:45</div>
+                    </div>
+                    <span style="color: var(--danger);">已過號</span>
+                </div>
+            `;
+        }
+
+        function hideHistory() {
+            document.getElementById('historySection').style.display = 'none';
+            document.getElementById('queueSection').style.display = 'block';
+        }
+
+        // =====================================================
+        // 啟動
+        // =====================================================
+
+        document.addEventListener('DOMContentLoaded', initLIFF);
+    </script>
+</body>
+</html>

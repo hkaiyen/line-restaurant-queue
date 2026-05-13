@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>我的預約 - LINE 餐廳候補位</title>
+    <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+    <style>
+        :root {
+            --primary: #00B900;
+            --primary-dark: #009900;
+            --text: #333;
+            --text-light: #666;
+            --bg: #f5f5f5;
+            --white: #fff;
+            --border: #e0e0e0;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --success: #28a745;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .reservation-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+
+        .reservation-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .reservation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .restaurant-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-seated {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-cancelled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-no_show {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .reservation-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .detail-icon {
+            margin-right: 6px;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .detail-value {
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .reservation-notes {
+            font-size: 13px;
+            color: var(--text-light);
+            padding: 8px 12px;
+            background: #fff3cd;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        .reservation-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-danger {
+            background: var(--white);
+            color: var(--danger);
+            border: 2px solid var(--danger);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .no-reservation {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .no-reservation-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .no-reservation h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .no-reservation p {
+            color: var(--text-light);
+            margin-bottom: 24px;
+        }
+
+        .tab-bar {
+            display: flex;
+            background: var(--white);
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        .error-msg {
+            background: #fff0f0;
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+
+        .empty-section {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .confirm-overlay.show {
+            display: flex;
+        }
+
+        .confirm-card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            max-width: 300px;
+            width: 90%;
+        }
+
+        .confirm-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .confirm-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .confirm-message {
+            color: var(--text-light);
+            margin-bottom: 24px;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .confirm-buttons .btn {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Loading -->
+        <div id="loading" class="loading show">
+            <div class="spinner"></div>
+            <p>載入預約資料中...</p>
+        </div>
+
+        <!-- Main Content -->
+        <div id="mainContent" style="display: none;">
+            <div class="header">
+                <h1>📋 我的預約</h1>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <!-- 取消確認彈窗 -->
+            <div id="confirmOverlay" class="confirm-overlay">
+                <div class="confirm-card">
+                    <div class="confirm-icon">⚠️</div>
+                    <div class="confirm-title" id="confirmTitle">確認取消？</div>
+                    <div class="confirm-message" id="confirmMessage">取消後將無法恢復</div>
+                    <div class="confirm-buttons">
+                        <button class="btn btn-secondary" onclick="closeConfirm()">返回</button>
+                        <button class="btn btn-danger" id="confirmBtn" onclick="doConfirmAction()">確認</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 篩選 Tab -->
+            <div class="tab-bar">
+                <div class="tab active" data-filter="upcoming" onclick="filterReservations('upcoming')">
+                    即將到來
+                </div>
+                <div class="tab" data-filter="past" onclick="filterReservations('past')">
+                    歷史記錄
+                </div>
+            </div>
+
+            <!-- 無預約 -->
+            <div id="noReservationSection" class="card" style="display: none;">
+                <div class="no-reservation">
+                    <div class="no-reservation-icon">📭</div>
+                    <h2>目前沒有預約</h2>
+                    <p>快去預約你喜歡的餐廳吧！</p>
+                    <button class="btn btn-primary" onclick="location.href='book.html'">
+                        前往預約
+                    </button>
+                </div>
+            </div>
+
+            <!-- 預約列表 -->
+            <div id="reservationList">
+                <!-- 動態載入 -->
+            </div>
+
+            <button class="btn btn-secondary" style="margin-top: 16px;" onclick="location.href='book.html'">
+                + 新增預約
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // LIFF SDK 初始化
+        // =====================================================
+        
+        const LIFF_ID = {
+            myReservation: '2006710601-abcDEF456',  // 請根據實際 LIFF ID 修改
+        };
+
+        const API_BASE = window.location.origin;
+        let currentUserId = null;
+        let allReservations = [];
+        let currentFilter = 'upcoming';
+        let pendingAction = null;
+
+        async function initLIFF() {
+            try {
+                await liff.init({ 
+                    liffId: LIFF_ID.myReservation,
+                    withLoginOnExternalBrowser: true 
+                });
+                
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    currentUserId = profile.userId;
+                } else {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    currentUserId = urlParams.get('userId') || 'UtestUser123456';
+                    liff.login();
+                }
+            } catch (error) {
+                console.error('❌ LIFF 初始化失敗：', error);
+                const urlParams = new URLSearchParams(window.location.search);
+                currentUserId = urlParams.get('userId') || 'UtestUser123456';
+            }
+
+            loadReservations();
+        }
+
+        // =====================================================
+        // API 呼叫
+        // =====================================================
+
+        async function loadReservations() {
+            try {
+                const response = await fetch(`${API_BASE}/liff/reservation/my?userId=${currentUserId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    allReservations = result.data.reservations || [];
+                    renderReservations();
+                } else {
+                    showError('載入預約失敗');
+                }
+            } catch (error) {
+                console.error('載入預約失敗：', error);
+                // 示範資料
+                allReservations = [
+                    {
+                        id: 'demo-res-1',
+                        restaurantId: 'demo-rest-1',
+                        restaurantName: '巷口牛肉麵',
+                        date: '2026-05-15',
+                        time: '19:00',
+                        partySize: 2,
+                        status: 'confirmed',
+                        notes: '慶生',
+                    },
+                    {
+                        id: 'demo-res-2',
+                        restaurantId: 'demo-rest-2',
+                        restaurantName: '幸福小館',
+                        date: '2026-05-08',
+                        time: '12:30',
+                        partySize: 4,
+                        status: 'seated',
+                        notes: '',
+                    }
+                ];
+                renderReservations();
+            }
+
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('loading').classList.remove('show');
+        }
+
+        function filterReservations(filter) {
+            currentFilter = filter;
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.filter === filter);
+            });
+
+            renderReservations();
+        }
+
+        function renderReservations() {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const filtered = allReservations.filter(r => {
+                if (currentFilter === 'upcoming') {
+                    return r.date >= today && r.status !== 'cancelled' && r.status !== 'no_show';
+                } else {
+                    return r.date < today || r.status === 'cancelled' || r.status === 'no_show';
+                }
+            });
+
+            if (filtered.length === 0) {
+                document.getElementById('noReservationSection').style.display = 'block';
+                document.getElementById('reservationList').innerHTML = '';
+                return;
+            }
+
+            document.getElementById('noReservationSection').style.display = 'none';
+
+            const container = document.getElementById('reservationList');
+            container.innerHTML = `
+                <div class="section-title">${currentFilter === 'upcoming' ? '即將到來的預約' : '歷史預約'}</div>
+                ${filtered.map(r => renderReservationCard(r)).join('')}
+            `;
+        }
+
+        function renderReservationCard(reservation) {
+            const statusClass = `status-${reservation.status}`;
+            const statusText = {
+                'confirmed': '已確認',
+                'seated': '已入座',
+                'cancelled': '已取消',
+                'no_show': '未到場',
+            }[reservation.status] || reservation.status;
+
+            const canCancel = reservation.status === 'confirmed';
+            const isPast = new Date(reservation.date) < new Date();
+
+            return `
+                <div class="card reservation-card">
+                    <div class="reservation-header">
+                        <div class="restaurant-name">${reservation.restaurantName}</div>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="reservation-details">
+                        <div class="detail-item">
+                            <span class="detail-icon">📅</span>
+                            <span class="detail-label">日期</span>
+                            <span class="detail-value">${reservation.date}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-icon">⏰</span>
+                            <span class="detail-label">時間</span>
+                            <span class="detail-value">${reservation.time}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-icon">👥</span>
+                            <span class="detail-label">人數</span>
+                            <span class="detail-value">${reservation.partySize} 人</span>
+                        </div>
+                    </div>
+                    ${reservation.notes ? `
+                        <div class="reservation-notes">
+                            📝 ${reservation.notes}
+                        </div>
+                    ` : ''}
+                    <div class="reservation-actions">
+                        ${canCancel ? `
+                            <button class="btn btn-danger" onclick="showCancelConfirm('${reservation.id}')">
+                                取消預約
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // 取消預約
+        // =====================================================
+
+        function showCancelConfirm(reservationId) {
+            pendingAction = { type: 'cancel', reservationId };
+            document.getElementById('confirmTitle').textContent = '取消預約？';
+            document.getElementById('confirmMessage').textContent = '取消後將無法恢復，請謹慎確認';
+            document.getElementById('confirmOverlay').classList.add('show');
+        }
+
+        function closeConfirm() {
+            pendingAction = null;
+            document.getElementById('confirmOverlay').classList.remove('show');
+        }
+
+        async function doConfirmAction() {
+            if (!pendingAction) return;
+
+            if (pendingAction.type === 'cancel') {
+                await cancelReservation(pendingAction.reservationId);
+            }
+
+            closeConfirm();
+        }
+
+        async function cancelReservation(reservationId) {
+            try {
+                const response = await fetch(`${API_BASE}/liff/reservation/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUserId,
+                        reservationId,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新本地資料
+                    const idx = allReservations.findIndex(r => r.id === reservationId);
+                    if (idx !== -1) {
+                        allReservations[idx].status = 'cancelled';
+                    }
+                    renderReservations();
+                    alert('已取消預約');
+                } else {
+                    showError(result.error || '取消失敗');
+                }
+            } catch (error) {
+                console.error('取消預約失敗：', error);
+                // 示範模式
+                const idx = allReservations.findIndex(r => r.id === reservationId);
+                if (idx !== -1) {
+                    allReservations[idx].status = 'cancelled';
+                }
+                renderReservations();
+                alert('已取消預約（示範模式）');
+            }
+        }
+
+        // =====================================================
+        // 錯誤顯示
+        // =====================================================
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMsg');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => errorEl.classList.remove('show'), 5000);
+        }
+
+        // =====================================================
+        // 啟動
+        // =====================================================
+
+        document.addEventListener('DOMContentLoaded', initLIFF);
+    </script>
+</body>
+</html>

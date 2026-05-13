@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>餐廳管理後台 - LINE 餐廳候補位系統</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/normalize.css@8.0.1/normalize.css">
+    <style>
+        :root {
+            --primary: #00B900;
+            --primary-dark: #009900;
+            --text: #333;
+            --text-light: #666;
+            --bg: #f5f5f5;
+            --white: #fff;
+            --border: #e0e0e0;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --success: #28a745;
+            --info: #17a2b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--white);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .restaurant-selector {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-info {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            margin-top: 64px;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: var(--white);
+            border-right: 1px solid var(--border);
+            padding: 24px 0;
+            position: fixed;
+            top: 64px;
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            color: var(--text);
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-item:hover {
+            background: var(--bg);
+        }
+
+        .nav-item.active {
+            background: #e8f5e9;
+            color: var(--primary);
+            border-left: 3px solid var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            margin-right: 12px;
+            width: 24px;
+            text-align: center;
+        }
+
+        /* Content */
+        .content {
+            flex: 1;
+            margin-left: 240px;
+            padding: 24px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        /* Queue List */
+        .queue-section {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .queue-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .queue-item:last-child {
+            border-bottom: none;
+        }
+
+        .queue-item:hover {
+            background: var(--bg);
+        }
+
+        .queue-number {
+            width: 60px;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .queue-info {
+            flex: 1;
+            margin-left: 16px;
+        }
+
+        .queue-customer {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .queue-details {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .queue-time {
+            text-align: right;
+            margin-left: 16px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .queue-status {
+            display: inline-flex;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .status-waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-called {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .status-served {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-left: 16px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--white);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: #333;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: var(--white);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Call Panel */
+        .call-panel {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+
+        .call-panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .call-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .call-btn {
+            flex: 1;
+            padding: 20px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--white);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .call-btn:hover {
+            border-color: var(--primary);
+            background: #f0fff0;
+        }
+
+        .call-btn-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .call-btn-label {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .call-btn-hint {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            background: var(--bg);
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .data-table tr:hover {
+            background: var(--bg);
+        }
+
+        /* Forms */
+        .form-section {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 16px 24px;
+            background: var(--text);
+            color: var(--white);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .toast.success {
+            background: var(--success);
+        }
+
+        .toast.error {
+            background: var(--danger);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .content {
+                margin-left: 0;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">🍜 候補位系統</div>
+            <select class="restaurant-selector" id="restaurantSelect">
+                <option value="">選擇餐廳</option>
+                <option value="demo-rest-1">巷口牛肉麵</option>
+                <option value="demo-rest-2">幸福小館</option>
+                <option value="demo-rest-3">川味麻辣鍋</option>
+            </select>
+        </div>
+        <div class="header-right">
+            <span class="user-info">👤 管理員</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
+                <span class="nav-icon">📊</span>
+                儀表板
+            </a>
+            <a class="nav-item" data-page="queue" onclick="showPage('queue')">
+                <span class="nav-icon">📋</span>
+                排隊管理
+            </a>
+            <a class="nav-item" data-page="reservations" onclick="showPage('reservations')">
+                <span class="nav-icon">📅</span>
+                預約管理
+            </a>
+            <a class="nav-item" data-page="settings" onclick="showPage('settings')">
+                <span class="nav-icon">⚙️</span>
+                基本設定
+            </a>
+        </nav>
+
+        <!-- Content -->
+        <main class="content">
+            <!-- Dashboard Page -->
+            <div id="dashboardPage">
+                <h1 class="page-title">📊 儀表板</h1>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-value" id="statWaiting">0</div>
+                        <div class="stat-label">等待中</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📢</div>
+                        <div class="stat-value" id="statCalled">0</div>
+                        <div class="stat-label">已叫號</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-value" id="statServed">0</div>
+                        <div class="stat-label">已入座</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-value" id="statReservations">0</div>
+                        <div class="stat-label">今日預約</div>
+                    </div>
+                </div>
+
+                <div class="call-panel">
+                    <div class="call-panel-title">🎯 叫號面板</div>
+                    <div class="call-buttons">
+                        <button class="call-btn" onclick="callNext()">
+                            <div class="call-btn-icon">▶️</div>
+                            <div class="call-btn-label">叫下一位</div>
+                            <div class="call-btn-hint">自動叫號</div>
+                        </button>
+                        <button class="call-btn" onclick="showCallSpecificModal()">
+                            <div class="call-btn-icon">🔢</div>
+                            <div class="call-btn-label">叫指定號碼</div>
+                            <div class="call-btn-hint">手動輸入</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="queue-section">
+                    <div class="section-header">
+                        <span class="section-title">📋 排隊名單</span>
+                        <button class="btn btn-sm btn-primary" onclick="refreshQueue()">🔄 刷新</button>
+                    </div>
+                    <div class="queue-list" id="queueList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>載入中...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue Management Page -->
+            <div id="queuePage" style="display: none;">
+                <h1 class="page-title">📋 排隊管理</h1>
+
+                <div class="queue-section">
+                    <div class="section-header">
+                        <span class="section-title">排隊名單</span>
+                        <button class="btn btn-sm btn-primary" onclick="refreshQueue()">🔄 刷新</button>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>號碼</th>
+                                <th>姓名</th>
+                                <th>人數</th>
+                                <th>狀態</th>
+                                <th>等候時間</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queueTableBody">
+                            <tr>
+                                <td colspan="6" class="loading">
+                                    <div class="spinner"></div>
+                                    載入中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reservations Page -->
+            <div id="reservationsPage" style="display: none;">
+                <h1 class="page-title">📅 預約管理</h1>
+
+                <div class="queue-section">
+                    <div class="section-header">
+                        <span class="section-title">今日預約</span>
+                        <select id="reservationDateFilter" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                            <option value="today">今天</option>
+                            <option value="tomorrow">明天</option>
+                            <option value="week">本週</option>
+                        </select>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>姓名</th>
+                                <th>人數</th>
+                                <th>電話</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reservationsTableBody">
+                            <tr>
+                                <td colspan="6" class="loading">
+                                    <div class="spinner"></div>
+                                    載入中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings Page -->
+            <div id="settingsPage" style="display: none;">
+                <h1 class="page-title">⚙️ 基本設定</h1>
+
+                <div class="form-section">
+                    <h3 style="margin-bottom: 20px;">餐廳資訊</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>餐廳名稱</label>
+                            <input type="text" id="settingName" value="巷口牛肉麵">
+                        </div>
+                        <div class="form-group">
+                            <label>電話</label>
+                            <input type="text" id="settingPhone" value="02-2771-1234">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>地址</label>
+                        <input type="text" id="settingAddress" value="台北市大安區忠孝東路100號">
+                    </div>
+
+                    <h3 style="margin: 24px 0 20px;">座位設定</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>總座位數</label>
+                            <input type="number" id="settingTotalSeats" value="40">
+                        </div>
+                        <div class="form-group">
+                            <label>平均用餐時長（分鐘）</label>
+                            <input type="number" id="settingMealDuration" value="45">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>排隊人數上限</label>
+                        <input type="number" id="settingQueueMax" value="30">
+                    </div>
+
+                    <div style="margin-top: 24px;">
+                        <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // =====================================================
+        // 全域狀態
+        // =====================================================
+
+        const API_BASE = window.location.origin;
+        let currentRestaurantId = 'demo-rest-1';
+        let queueData = [];
+        let reservationData = [];
+
+        // 示範資料
+        const demoQueueData = [
+            { id: 'q1', queueNumber: 10, customerName: '王小明', partySize: 2, status: 'waiting', joinedAt: '10:30' },
+            { id: 'q2', queueNumber: 11, customerName: '陳大明', partySize: 4, status: 'waiting', joinedAt: '10:45' },
+            { id: 'q3', queueNumber: 12, customerName: '李小美', partySize: 1, status: 'waiting', joinedAt: '11:00' },
+            { id: 'q4', queueNumber: 8, customerName: '張小華', partySize: 3, status: 'called', joinedAt: '10:15' },
+        ];
+
+        const demoReservationData = [
+            { id: 'r1', time: '11:30', customerName: '林小姐', partySize: 4, phone: '0912-345-678', status: 'confirmed' },
+            { id: 'r2', time: '12:00', customerName: '黃先生', partySize: 2, phone: '0923-456-789', status: 'confirmed' },
+            { id: 'r3', time: '12:30', customerName: '劉小姐', partySize: 6, phone: '0934-567-890', status: 'confirmed' },
+        ];
+
+        // =====================================================
+        // 頁面切換
+        // =====================================================
+
+        function showPage(pageName) {
+            // 隱藏所有頁面
+            document.querySelectorAll('[id$="Page"]').forEach(page => {
+                page.style.display = 'none';
+            });
+
+            // 顯示選擇的頁面
+            document.getElementById(`${pageName}Page`).style.display = 'block';
+
+            // 更新導航選中狀態
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.page === pageName);
+            });
+
+            // 根據頁面載入資料
+            switch(pageName) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'queue':
+                    loadQueue();
+                    break;
+                case 'reservations':
+                    loadReservations();
+                    break;
+            }
+        }
+
+        // =====================================================
+        // 儀表板
+        // =====================================================
+
+        function loadDashboard() {
+            // 使用示範資料
+            queueData = demoQueueData;
+
+            // 更新統計
+            const waiting = queueData.filter(q => q.status === 'waiting').length;
+            const called = queueData.filter(q => q.status === 'called').length;
+            const served = queueData.filter(q => q.status === 'served').length;
+
+            document.getElementById('statWaiting').textContent = waiting;
+            document.getElementById('statCalled').textContent = called;
+            document.getElementById('statServed').textContent = served;
+            document.getElementById('statReservations').textContent = demoReservationData.length;
+
+            // 更新排隊名單
+            renderQueueList();
+        }
+
+        function renderQueueList() {
+            const container = document.getElementById('queueList');
+
+            if (queueData.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📭</div>
+                        <p>目前沒有排隊中的客人</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = queueData.map(q => `
+                <div class="queue-item">
+                    <div class="queue-number">${q.queueNumber}</div>
+                    <div class="queue-info">
+                        <div class="queue-customer">${q.customerName}</div>
+                        <div class="queue-details">${q.partySize} 人</div>
+                    </div>
+                    <div class="queue-time">
+                        加入時間 ${q.joinedAt}
+                        <span class="queue-status status-${q.status}">${getStatusText(q.status)}</span>
+                    </div>
+                    <div class="action-buttons">
+                        ${q.status === 'waiting' ? `
+                            <button class="btn btn-sm btn-success" onclick="callSpecificNumber(${q.queueNumber})">叫號</button>
+                            <button class="btn btn-sm btn-danger" onclick="cancelQueueEntry('${q.id}')">移除</button>
+                        ` : ''}
+                        ${q.status === 'called' ? `
+                            <button class="btn btn-sm btn-primary" onclick="markAsServed('${q.id}')">入座</button>
+                            <button class="btn btn-sm btn-warning" onclick="markAsNoShow('${q.id}')">過號</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'waiting': '等待中',
+                'called': '已叫號',
+                'served': '已入座',
+                'cancelled': '已取消',
+                'no_show': '過號',
+            };
+            return texts[status] || status;
+        }
+
+        // =====================================================
+        // 叫號功能
+        // =====================================================
+
+        function callNext() {
+            const waitingEntries = queueData.filter(q => q.status === 'waiting');
+            
+            if (waitingEntries.length === 0) {
+                showToast('目前沒有等待中的客人', 'error');
+                return;
+            }
+
+            // 叫下一位
+            const nextEntry = waitingEntries[0];
+            callSpecificNumber(nextEntry.queueNumber);
+        }
+
+        function showCallSpecificModal() {
+            const number = prompt('請輸入要叫的號碼：');
+            if (number) {
+                callSpecificNumber(parseInt(number));
+            }
+        }
+
+        function callSpecificNumber(queueNumber) {
+            const entry = queueData.find(q => q.queueNumber === queueNumber && q.status === 'waiting');
+            
+            if (!entry) {
+                showToast(`找不到號碼 ${queueNumber} 的排隊資料`, 'error');
+                return;
+            }
+
+            // 更新狀態
+            entry.status = 'called';
+            
+            // 更新統計
+            document.getElementById('statWaiting').textContent = queueData.filter(q => q.status === 'waiting').length;
+            document.getElementById('statCalled').textContent = queueData.filter(q => q.status === 'called').length;
+
+            // 重新渲染
+            renderQueueList();
+
+            showToast(`已叫號：第 ${queueNumber} 號（${entry.customerName}）`, 'success');
+
+            // 在真實環境中，這裡會呼叫 API 並發送 LINE 通知
+            console.log(`叫號通知：${entry.customerName} (${entry.partySize}人)`);
+        }
+
+        function markAsServed(entryId) {
+            const entry = queueData.find(q => q.id === entryId);
+            if (entry) {
+                entry.status = 'served';
+                renderQueueList();
+                loadDashboard();
+                showToast(`已入座：第 ${entry.queueNumber} 號`, 'success');
+            }
+        }
+
+        function markAsNoShow(entryId) {
+            const entry = queueData.find(q => q.id === entryId);
+            if (entry) {
+                entry.status = 'no_show';
+                renderQueueList();
+                loadDashboard();
+                showToast(`已標記過號：第 ${entry.queueNumber} 號`, 'success');
+            }
+        }
+
+        function cancelQueueEntry(entryId) {
+            if (!confirm('確定要移除這個排隊資料？')) return;
+
+            const entry = queueData.find(q => q.id === entryId);
+            if (entry) {
+                entry.status = 'cancelled';
+                renderQueueList();
+                loadDashboard();
+                showToast(`已移除：第 ${entry.queueNumber} 號`, 'success');
+            }
+        }
+
+        // =====================================================
+        // 排隊管理頁面
+        // =====================================================
+
+        function loadQueue() {
+            queueData = demoQueueData;
+            renderQueueTable();
+        }
+
+        function renderQueueTable() {
+            const tbody = document.getElementById('queueTableBody');
+
+            if (queueData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <p>目前沒有排隊中的客人</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = queueData.map(q => `
+                <tr>
+                    <td><strong>${q.queueNumber}</strong></td>
+                    <td>${q.customerName}</td>
+                    <td>${q.partySize} 人</td>
+                    <td><span class="queue-status status-${q.status}">${getStatusText(q.status)}</span></td>
+                    <td>${q.joinedAt}</td>
+                    <td>
+                        ${q.status === 'waiting' ? `
+                            <button class="btn btn-sm btn-success" onclick="callSpecificNumber(${q.queueNumber})">叫號</button>
+                        ` : ''}
+                        ${q.status === 'called' ? `
+                            <button class="btn btn-sm btn-primary" onclick="markAsServed('${q.id}')">入座</button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // =====================================================
+        // 預約管理頁面
+        // =====================================================
+
+        function loadReservations() {
+            reservationData = demoReservationData;
+            renderReservationsTable();
+        }
+
+        function renderReservationsTable() {
+            const tbody = document.getElementById('reservationsTableBody');
+
+            if (reservationData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <div class="empty-icon">📅</div>
+                            <p>今天沒有預約</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = reservationData.map(r => `
+                <tr>
+                    <td><strong>${r.time}</strong></td>
+                    <td>${r.customerName}</td>
+                    <td>${r.partySize} 人</td>
+                    <td>${r.phone}</td>
+                    <td><span class="queue-status status-${r.status}">${getStatusText(r.status)}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="markReservationSeated('${r.id}')">入座</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function markReservationSeated(reservationId) {
+            const reservation = reservationData.find(r => r.id === reservationId);
+            if (reservation) {
+                reservation.status = 'seated';
+                renderReservationsTable();
+                showToast(`已入座：${reservation.customerName}`, 'success');
+            }
+        }
+
+        // =====================================================
+        // 設定頁面
+        // =====================================================
+
+        function saveSettings() {
+            // 在真實環境中，這裡會儲存到資料庫
+            showToast('設定已儲存', 'success');
+        }
+
+        // =====================================================
+        // 工具函數
+        // =====================================================
+
+        function refreshQueue() {
+            loadQueue();
+            loadDashboard();
+            showToast('已刷新', 'success');
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // =====================================================
+        // 初始化
+        // =====================================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 載入儀表板
+            loadDashboard();
+
+            // 餐廳選擇監聽
+            document.getElementById('restaurantSelect').addEventListener('change', (e) => {
+                currentRestaurantId = e.target.value;
+                loadDashboard();
+            });
+        });
+    </script>
+</body>
+</html>

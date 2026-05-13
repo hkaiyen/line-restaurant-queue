@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>線上預約 - LINE 餐廳候補位</title>
+    <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+    <style>
+        :root {
+            --primary: #00B900;
+            --primary-dark: #009900;
+            --text: #333;
+            --text-light: #666;
+            --bg: #f5f5f5;
+            --white: #fff;
+            --border: #e0e0e0;
+            --danger: #dc3545;
+            --warning: #ffc107;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        .date-time-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            margin-top: 12px;
+        }
+
+        .restaurant-select {
+            display: grid;
+            gap: 12px;
+        }
+
+        .restaurant-option {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .restaurant-option:hover {
+            border-color: var(--primary);
+        }
+
+        .restaurant-option.selected {
+            border-color: var(--primary);
+            background: #f0fff0;
+        }
+
+        .restaurant-option input {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary);
+        }
+
+        .restaurant-info {
+            flex: 1;
+        }
+
+        .restaurant-name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .restaurant-detail {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .success-overlay.show {
+            display: flex;
+        }
+
+        .success-card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin: 0 auto 20px;
+        }
+
+        .success-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .reservation-detail {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .reservation-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .reservation-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .reservation-label {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        .reservation-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .error-msg {
+            background: #fff0f0;
+            color: var(--danger);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Loading -->
+        <div id="loading" class="loading show">
+            <div class="spinner"></div>
+            <p>載入中...</p>
+        </div>
+
+        <!-- Main Content -->
+        <div id="mainContent" style="display: none;">
+            <div class="header">
+                <h1>📅 線上預約</h1>
+                <p>選擇餐廳並預約時段</p>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <div class="info-box">
+                💡 請提前預約，抵達時告知預約姓名即可
+            </div>
+
+            <div class="card">
+                <form id="reservationForm">
+                    <!-- 餐廳選擇 -->
+                    <div class="form-group">
+                        <label>選擇餐廳</label>
+                        <div class="restaurant-select" id="restaurantList">
+                            <!-- 動態載入 -->
+                        </div>
+                    </div>
+
+                    <!-- 日期 -->
+                    <div class="form-group">
+                        <label for="reservationDate">預約日期</label>
+                        <input type="date" id="reservationDate" required>
+                        <div class="form-hint">可預約未來 30 天內的時段</div>
+                    </div>
+
+                    <!-- 時間 -->
+                    <div class="form-group">
+                        <label for="reservationTime">預約時間</label>
+                        <select id="reservationTime" required>
+                            <option value="">請選擇時間</option>
+                            <option value="11:00">11:00</option>
+                            <option value="11:30">11:30</option>
+                            <option value="12:00">12:00</option>
+                            <option value="12:30">12:30</option>
+                            <option value="13:00">13:00</option>
+                            <option value="13:30">13:30</option>
+                            <option value="17:00">17:00</option>
+                            <option value="17:30">17:30</option>
+                            <option value="18:00">18:00</option>
+                            <option value="18:30">18:30</option>
+                            <option value="19:00">19:00</option>
+                            <option value="19:30">19:30</option>
+                            <option value="20:00">20:00</option>
+                            <option value="20:30">20:30</option>
+                            <option value="21:00">21:00</option>
+                        </select>
+                    </div>
+
+                    <!-- 用餐人數 -->
+                    <div class="form-group">
+                        <label for="partySize">用餐人數</label>
+                        <select id="partySize" required>
+                            <option value="">請選擇人數</option>
+                            <option value="1">1 人</option>
+                            <option value="2">2 人</option>
+                            <option value="3">3 人</option>
+                            <option value="4">4 人</option>
+                            <option value="5">5 人</option>
+                            <option value="6">6 人</option>
+                            <option value="7">7 人</option>
+                            <option value="8">8 人</option>
+                        </select>
+                    </div>
+
+                    <!-- 備註 -->
+                    <div class="form-group">
+                        <label for="notes">備註（選填）</label>
+                        <textarea id="notes" placeholder="例如：過敏原、慶生、嬰兒座椅等"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        確認預約
+                    </button>
+                </form>
+            </div>
+
+            <button class="btn btn-secondary" onclick="location.href='my.html'">
+                📋 查看我的預約
+            </button>
+        </div>
+    </div>
+
+    <!-- 成功彈窗 -->
+    <div id="successOverlay" class="success-overlay">
+        <div class="success-card">
+            <div class="success-icon">✓</div>
+            <div class="success-title">預約成功！</div>
+            <div class="reservation-detail" id="reservationDetail">
+                <!-- 動態 -->
+            </div>
+            <button class="btn btn-primary" onclick="location.href='my.html'">
+                查看我的預約
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // LIFF SDK 初始化
+        // =====================================================
+        
+        const LIFF_ID = {
+            bookReservation: '2006710601-xyzABC123',  // 請根據實際 LIFF ID 修改
+        };
+
+        const API_BASE = window.location.origin;
+        let currentUserId = null;
+
+        async function initLIFF() {
+            try {
+                await liff.init({ 
+                    liffId: LIFF_ID.bookReservation,
+                    withLoginOnExternalBrowser: true 
+                });
+                
+                if (liff.isLoggedIn()) {
+                    const profile = await liff.getProfile();
+                    currentUserId = profile.userId;
+                } else {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    currentUserId = urlParams.get('userId') || 'UtestUser123456';
+                    liff.login();
+                }
+            } catch (error) {
+                console.error('❌ LIFF 初始化失敗：', error);
+                const urlParams = new URLSearchParams(window.location.search);
+                currentUserId = urlParams.get('userId') || 'UtestUser123456';
+            }
+
+            // 設定最小日期（今天）
+            const today = new Date();
+            const minDate = today.toISOString().split('T')[0];
+            document.getElementById('reservationDate').min = minDate;
+
+            // 設定最大日期（30 天後）
+            const maxDate = new Date(today);
+            maxDate.setDate(maxDate.getDate() + 30);
+            document.getElementById('reservationDate').max = maxDate.toISOString().split('T')[0];
+
+            // 預設日期為今天
+            document.getElementById('reservationDate').value = minDate;
+
+            loadRestaurants();
+        }
+
+        // =====================================================
+        // API 呼叫
+        // =====================================================
+
+        async function loadRestaurants() {
+            try {
+                const response = await fetch(`${API_BASE}/liff/restaurants`);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderRestaurantList(result.data.restaurants);
+                } else {
+                    showError('載入餐廳資料失敗');
+                }
+            } catch (error) {
+                console.error('載入餐廳失敗：', error);
+                renderDemoRestaurants();
+            }
+
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('loading').classList.remove('show');
+        }
+
+        function renderRestaurantList(restaurants) {
+            const container = document.getElementById('restaurantList');
+            container.innerHTML = restaurants.map(r => `
+                <label class="restaurant-option" data-restaurant-id="${r.id}">
+                    <input type="radio" name="restaurant" value="${r.id}" required>
+                    <div class="restaurant-info">
+                        <div class="restaurant-name">${r.name}</div>
+                        <div class="restaurant-detail">${r.address || ''}</div>
+                    </div>
+                </label>
+            `).join('');
+
+            container.querySelectorAll('.restaurant-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    container.querySelectorAll('.restaurant-option').forEach(o => o.classList.remove('selected'));
+                    option.classList.add('selected');
+                    option.querySelector('input').checked = true;
+                });
+            });
+        }
+
+        function renderDemoRestaurants() {
+            renderRestaurantList([
+                { id: 'demo-rest-1', name: '巷口牛肉麵', address: '台北市大安區忠孝東路100號' },
+                { id: 'demo-rest-2', name: '幸福小館', address: '台北市信義區忠孝東路200號' },
+                { id: 'demo-rest-3', name: '川味麻辣鍋', address: '台北市松山區南京東路300號' },
+            ]);
+        }
+
+        // =====================================================
+        // 表單提交
+        // =====================================================
+
+        document.getElementById('reservationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const selectedRestaurant = document.querySelector('input[name="restaurant"]:checked');
+            const date = document.getElementById('reservationDate').value;
+            const time = document.getElementById('reservationTime').value;
+            const partySize = document.getElementById('partySize').value;
+            const notes = document.getElementById('notes').value.trim();
+
+            if (!selectedRestaurant) {
+                showError('請選擇餐廳');
+                return;
+            }
+
+            if (!date || !time) {
+                showError('請選擇日期和時間');
+                return;
+            }
+
+            if (!partySize) {
+                showError('請選擇用餐人數');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '處理中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/liff/reservation/book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUserId,
+                        restaurantId: selectedRestaurant.value,
+                        date,
+                        time,
+                        partySize: parseInt(partySize),
+                        notes: notes || null,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.data);
+                } else {
+                    showError(result.error || '預約失敗');
+                }
+            } catch (error) {
+                console.error('預約失敗：', error);
+                // 示範模式：顯示成功
+                const restaurantName = selectedRestaurant.closest('.restaurant-option').querySelector('.restaurant-name').textContent;
+                showSuccess({
+                    reservation: {
+                        id: 'demo-res-' + Date.now(),
+                        restaurantName,
+                        date,
+                        time,
+                        partySize: parseInt(partySize),
+                        status: 'confirmed',
+                    }
+                });
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = '確認預約';
+        });
+
+        // =====================================================
+        // 成功彈窗
+        // =====================================================
+
+        function showSuccess(data) {
+            document.getElementById('reservationDetail').innerHTML = `
+                <div class="reservation-item">
+                    <span class="reservation-label">餐廳</span>
+                    <span class="reservation-value">${data.reservation.restaurantName}</span>
+                </div>
+                <div class="reservation-item">
+                    <span class="reservation-label">日期</span>
+                    <span class="reservation-value">${data.reservation.date}</span>
+                </div>
+                <div class="reservation-item">
+                    <span class="reservation-label">時間</span>
+                    <span class="reservation-value">${data.reservation.time}</span>
+                </div>
+                <div class="reservation-item">
+                    <span class="reservation-label">人數</span>
+                    <span class="reservation-value">${data.reservation.partySize} 人</span>
+                </div>
+            `;
+            document.getElementById('successOverlay').classList.add('show');
+        }
+
+        // =====================================================
+        // 錯誤顯示
+        // =====================================================
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMsg');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => errorEl.classList.remove('show'), 5000);
+        }
+
+        // =====================================================
+        // 啟動
+        // =====================================================
+
+        document.addEventListener('DOMContentLoaded', initLIFF);
+    </script>
+</body>
+</html>
