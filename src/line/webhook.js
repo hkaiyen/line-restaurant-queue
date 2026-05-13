@@ -1,64 +1,45 @@
 /**
- * LINE 餐廳候補位系統 - Webhook 處理器
+ * LINE 餐廳候補位系統 - Webhook 處理器（最簡化版）
  */
 
 const express = require('express');
 const router = express.Router();
-
-// 載入處理器
-const messageHandler = require('./handlers/messageHandler');
-const followHandler = require('./handlers/followHandler');
 
 // =====================================================
 // LINE Webhook 路由
 // =====================================================
 
 // POST / - 接收 LINE Webhook
-router.post('/', async (req, res) => {
-    console.log('📨 Webhook received');
-    console.log('Body:', JSON.stringify(req.body).substring(0, 200));
-
-    // 快速回應 LINE
+router.post('/', (req, res) => {
+    console.log('✅ POST /webhook received');
+    
+    // 立刻回應 LINE（必須快速）
     res.status(200).send('OK');
-
+    
+    // 取得事件
     const events = req.body.events;
     if (!events || events.length === 0) {
         console.log('📭 No events');
         return;
     }
-
+    
     console.log(`📨 Processing ${events.length} event(s)`);
-
-    // 載入依賴
-    const lineClient = require('../line/client');
-    const repositories = require('../../repositories');
-    const flexMessages = require('./messages/flexMessages');
-
-    // 處理每個事件
-    for (const event of events) {
-        console.log(`🔔 Event type: ${event.type}`);
+    
+    // 簡單處理每個事件
+    events.forEach(event => {
+        console.log(`🔔 Event: ${event.type}`);
         
-        try {
-            switch (event.type) {
-                case 'follow':
-                    await followHandler.handleFollow(event, { lineClient, repositories, flexMessages });
-                    break;
-                    
-                case 'message':
-                    await messageHandler.handleMessage(event, { lineClient, repositories, flexMessages });
-                    break;
-                    
-                default:
-                    console.log(`⚠️ Unknown event type: ${event.type}`);
-            }
-        } catch (error) {
-            console.error(`❌ Error processing ${event.type}:`, error.message);
+        if (event.type === 'follow') {
+            console.log(`👋 New follower: ${event.source.userId}`);
+        } else if (event.type === 'message') {
+            console.log(`💬 Message: ${event.message.text}`);
         }
-    }
+    });
 });
 
 // GET / - Webhook 驗證
 router.get('/', (req, res) => {
+    console.log('✅ GET /webhook');
     res.status(200).send('Webhook endpoint is active');
 });
 
