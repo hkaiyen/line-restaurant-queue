@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 // LINE Webhook 路徑
 // =====================================================
 const lineWebhook = require('./src/line/webhook');
-app.use('/webhook', lineWebhook.router);
+app.use('/', lineWebhook.router);
 
 // =====================================================
 // 其他頁面和 API
