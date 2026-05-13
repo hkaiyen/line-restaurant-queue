@@ -43,7 +43,7 @@ async function askMiniMax(userMessage) {
                 'Authorization': `Bearer ${MINIMAX_API_KEY}`
             },
             body: JSON.stringify({
-                model: 'abab6.5s-chat',
+                model: 'MiniMax-Text-01',
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userMessage }
