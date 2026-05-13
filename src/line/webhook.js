@@ -334,7 +334,8 @@ router.post('/', (req, res) => {
             
             // 偵測群組
             const isGroup = event.source?.type === 'group';
-            console.log(`📍 Group: ${isGroup}`);
+            const groupId = event.source?.groupId || null;
+            console.log(`📍 Group: ${isGroup}, groupId: ${groupId}`);
             
             // 幫助指令
             if (text === '幫助' || text === 'help' || text === '?' || text === '/help') {
@@ -349,9 +350,16 @@ router.post('/', (req, res) => {
             const context = { isGroup };
             const aiReply = await askMiniMax(text, context);
             
-            // 發送 AI 回覆
-            const userId = event.source?.userId || 'Uad991d6c2defed9e2de07a16445c39bc';
-            await pushMessage(userId, aiReply);
+            // 群組訊息 → 回覆到群組（用 replyToken）
+            // 個人訊息 → 推送到用戶（用 userId）
+            if (isGroup) {
+                // 群組：用 replyToken 回覆到群組
+                await replyMessage(event.replyToken, aiReply);
+            } else {
+                // 個人：用 pushMessage 發送
+                const userId = event.source?.userId || 'Uad991d6c2defed9e2de07a16445c39bc';
+                await pushMessage(userId, aiReply);
+            }
         }
     });
 });
