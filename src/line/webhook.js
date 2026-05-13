@@ -60,6 +60,42 @@ async function searchWeb(query) {
 }
 
 // =====================================================
+// LINE 用戶資料取得
+// =====================================================
+
+async function getUserProfile(userId, groupId = null) {
+    const accessToken = lineConfig.messagingApi.accessToken;
+    if (!accessToken || !userId) return null;
+    
+    try {
+        let url;
+        if (groupId) {
+            // 群組：用群組 API
+            url = `${LINE_API_BASE}/bot/group/${groupId}/member/${userId}`;
+        } else {
+            // 個人：用個人 API
+            url = `${LINE_API_BASE}/bot/profile/${userId}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            return {
+                userId: userId,
+                displayName: data.displayName || '家人',
+                pictureUrl: data.pictureUrl || null
+            };
+        }
+    } catch (error) {
+        console.error('❌ Get profile error:', error.message);
+    }
+    return { userId: userId, displayName: '家人' };
+}
+
+// =====================================================
 // AI 回覆功能（增強版）
 // =====================================================
 
@@ -74,9 +110,11 @@ async function askMiniMax(userMessage, context = {}) {
     // 分析訊息類型
     const text = userMessage.trim();
     const isGroup = context.isGroup || false;
+    const userName = context.userName || '家人';
+    const userId = context.userId || '';
     
     // 隱私關鍵字過濾
-    const privacyKeywords = ['老闆', '老闆的', '薛凱恩', 'Hsueh', ' Kaiyen', '個人', '帳戶', '銀行', '密碼'];
+    const privacyKeywords = ['老闆', '老闆的', '薛凱恩', 'Hsueh', 'Kaiyen', '個人', '帳戶', '銀行', '密碼'];
     let filteredText = text;
     for (const kw of privacyKeywords) {
         if (text.includes(kw)) {
@@ -153,7 +191,13 @@ async function askMiniMax(userMessage, context = {}) {
                 temperature: 0.7,
                 system: systemPrompt,
                 messages: [
-                    { role: 'user', content: filteredText || text }
+                    { role: 'user', content: `[發話人資料]
+用戶名稱：${userName}
+用戶ID：${userId}
+是否是群組：${isGroup ? '是' : '否'}
+
+[訊息內容]
+${filteredText || text}` }
                 ]
             })
         });
@@ -335,7 +379,18 @@ router.post('/', (req, res) => {
             // 偵測群組
             const isGroup = event.source?.type === 'group';
             const groupId = event.source?.groupId || null;
-            console.log(`📍 Group: ${isGroup}, groupId: ${groupId}`);
+            const userId = event.source?.userId || '';
+            console.log(`📍 Group: ${isGroup}, groupId: ${groupId}, userId: ${userId}`);
+            
+            // 取得用戶名稱
+            let userName = '家人';
+            if (userId) {
+                const profile = await getUserProfile(userId, groupId);
+                if (profile && profile.displayName) {
+                    userName = profile.displayName;
+                }
+            }
+            console.log(`👤 User name: ${userName}`);
             
             // 幫助指令
             if (text === '幫助' || text === 'help' || text === '?' || text === '/help') {
@@ -346,8 +401,8 @@ router.post('/', (req, res) => {
             // 正在處理中回覆
             await replyMessage(event.replyToken, `⏳ 小安思考中...`);
             
-            // AI 回覆
-            const context = { isGroup };
+            // AI 回覆（帶用戶名稱）
+            const context = { isGroup, userName, userId };
             const aiReply = await askMiniMax(text, context);
             
             // 群組訊息 → 回覆到群組（用 replyToken）
@@ -357,8 +412,8 @@ router.post('/', (req, res) => {
                 await replyMessage(event.replyToken, aiReply);
             } else {
                 // 個人：用 pushMessage 發送
-                const userId = event.source?.userId || 'Uad991d6c2defed9e2de07a16445c39bc';
-                await pushMessage(userId, aiReply);
+                const pushUserId = userId || 'Uad991d6c2defed9e2de07a16445c39bc';
+                await pushMessage(pushUserId, aiReply);
             }
         }
     });
