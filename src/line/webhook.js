@@ -398,7 +398,6 @@ router.post('/', (req, res) => {
                 return;
             }
             
-            // 正在處理中回覆
             await replyMessage(event.replyToken, `⏳ 小安思考中...`);
             
             // AI 回覆（帶用戶名稱）
