@@ -16,7 +16,11 @@ const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
 const MINIMAX_API_URL = 'https://api.minimax.chat/v1/text/chatcompletion_pro';
 
 async function askMiniMax(userMessage) {
+    console.log('🤖 askMiniMax called with:', userMessage);
+    console.log('🔑 MINIMAX_API_KEY exists:', !!MINIMAX_API_KEY, 'length:', MINIMAX_API_KEY.length);
+    
     if (!MINIMAX_API_KEY) {
+        console.error('❌ MINIMAX_API_KEY is empty!');
         return '⚠️ AI 功能尚未設定（缺少 API Key）';
     }
 
@@ -37,6 +41,8 @@ async function askMiniMax(userMessage) {
 
     try {
         const urlWithGroup = MINIMAX_API_URL + '?GroupId=your_group_id';
+        console.log('📡 Calling MiniMax API:', urlWithGroup);
+        
         const response = await fetch(urlWithGroup, {
             method: 'POST',
             headers: {
@@ -54,16 +60,49 @@ async function askMiniMax(userMessage) {
             })
         });
 
+        console.log('📬 MiniMax response status:', response.status);
+        
         if (!response.ok) {
-            console.error('❌ MiniMax API error:', response.status);
-            return '⚠️ AI 回應失敗，請稍後再試';
+            const errorText = await response.text();
+            console.error('❌ MiniMax API error:', response.status, errorText);
+            return `⚠️ AI 回應失敗（${response.status}），請稍後再試`;
         }
 
         const data = await response.json();
-        return data.choices?.[0]?.message?.content || '⚠️ 無法理解，請重新輸入';
+        console.log('📦 MiniMax response data:', JSON.stringify(data, null, 2));
+        
+        // 嘗試多種可能的回應格式
+        let reply = '';
+        
+        // 格式 1: OpenAI style
+        if (data.choices?.[0]?.message?.content) {
+            reply = data.choices[0].message.content;
+        }
+        // 格式 2: MiniMax style with text field
+        else if (data.choices?.[0]?.text) {
+            reply = data.choices[0].text;
+        }
+        // 格式 3: MiniMax style with output
+        else if (data.output) {
+            reply = typeof data.output === 'string' ? data.output : data.output?.text || JSON.stringify(data.output);
+        }
+        // 格式 4: raw content
+        else if (data.content) {
+            reply = data.content;
+        }
+        // 格式 5: 檢查整個 data
+        else {
+            console.log('⚠️ Unexpected response format, searching for content...');
+            console.log('Data keys:', Object.keys(data));
+            reply = '⚠️ 無法理解，請重新輸入';
+        }
+        
+        console.log('✅ Generated reply:', reply);
+        return reply;
+        
     } catch (error) {
         console.error('❌ MiniMax error:', error.message);
-        return '⚠️ AI 系統錯誤，請稍後再試';
+        return `⚠️ AI 系統錯誤：${error.message}`;
     }
 }
 
@@ -119,6 +158,7 @@ async function replyMessage(replyToken, text) {
 
 router.post('/', (req, res) => {
     console.log('✅ POST /webhook received');
+    console.log('📋 LINE_ACCESS_TOKEN:', lineConfig.messagingApi.accessToken ? 'SET (len=' + lineConfig.messagingApi.accessToken.length + ')' : 'UNDEFINED!');
     
     // 立刻回應 LINE（避免 timeout）
     res.status(200).send('OK');
