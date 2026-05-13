@@ -75,10 +75,6 @@ async function askMiniMax(userMessage) {
         // 嘗試多種可能的回應格式
         let reply = '';
         
-        // Anthropic format: data.content[0].text
-        // MiniMax has: content[0] = thinking, content[1] = actual reply
-        let reply = '';
-        
         if (data.content && Array.isArray(data.content)) {
             // 找 type="text" 的項目
             for (const item of data.content) {
