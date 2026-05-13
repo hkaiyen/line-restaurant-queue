@@ -72,7 +72,41 @@ async function askMiniMax(userMessage) {
         const data = await response.json();
         console.log('📦 MiniMax response data:', JSON.stringify(data, null, 2));
         
-        let reply = data.content?.[0]?.text || '⚠️ 無法理解，請重新輸入';
+        // 嘗試多種可能的回應格式
+        let reply = '';
+        
+        // Anthropic format: data.content[0].text
+        if (data.content && data.content[0] && data.content[0].text) {
+            reply = data.content[0].text;
+        }
+        // OpenAI format alternative
+        else if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+            reply = data.choices[0].message.content;
+        }
+        // Text directly
+        else if (data.text) {
+            reply = data.text;
+        }
+        // Output field
+        else if (data.output) {
+            reply = typeof data.output === 'string' ? data.output : (data.output.text || JSON.stringify(data.output));
+        }
+        // Raw data check
+        else {
+            console.log('⚠️ Unexpected response format, checking raw data...');
+            console.log('Data keys:', Object.keys(data));
+            console.log('Full data:', JSON.stringify(data));
+            // 嘗試找任何可能有文字的欄位
+            for (let key in data) {
+                if (typeof data[key] === 'string' && data[key].length > 0 && data[key].length < 10000) {
+                    reply = data[key];
+                    break;
+                }
+            }
+            if (!reply) {
+                reply = '⚠️ 無法理解，請重新輸入';
+            }
+        }
         
         console.log('✅ Generated reply:', reply);
         return reply;
