@@ -1,5 +1,5 @@
 /**
- * LINE 餐廳候補位系統 - Webhook 處理器（直接使用 HTTP API）
+ * LINE 餐廳候補位系統 - Webhook 處理器
  */
 
 const express = require('express');
@@ -8,17 +8,21 @@ const router = express.Router();
 const lineConfig = require('../../config/line');
 
 // =====================================================
-// 直接使用 HTTP API 而非 SDK
+// 直接使用 HTTP API
 // =====================================================
 
 const LINE_API_BASE = 'https://api.line.me/v2';
 
 async function replyMessage(replyToken, text) {
-    console.log(`📤 Replying to ${replyToken}: ${text}`);
-    
     const accessToken = lineConfig.messagingApi.accessToken;
+    
+    console.log(`📤 Reply attempt:`);
+    console.log(`   Token length: ${accessToken ? accessToken.length : 'UNDEFINED'}`);
+    console.log(`   Token prefix: ${accessToken ? accessToken.substring(0, 10) : 'N/A'}`);
+    console.log(`   ReplyToken: ${replyToken ? 'SET' : 'UNDEFINED'}`);
+    
     if (!accessToken) {
-        console.error('❌ LINE_ACCESS_TOKEN is not set!');
+        console.error('❌ LINE_ACCESS_TOKEN is undefined!');
         return { success: false, error: 'No token' };
     }
     
@@ -61,12 +65,11 @@ async function replyMessage(replyToken, text) {
 // POST / - 接收 LINE Webhook
 router.post('/', (req, res) => {
     console.log('✅ POST /webhook received');
-    console.log('📋 Access Token:', lineConfig.messagingApi.accessToken ? 'SET' : 'NOT SET');
+    console.log('📋 LINE_ACCESS_TOKEN:', lineConfig.messagingApi.accessToken ? 'SET (len=' + lineConfig.messagingApi.accessToken.length + ')' : 'UNDEFINED!');
     
-    // 立刻回應 LINE（必須快速）
+    // 立刻回應 LINE
     res.status(200).send('OK');
     
-    // 取得事件
     const events = req.body.events;
     if (!events || events.length === 0) {
         console.log('📭 No events');
@@ -75,15 +78,10 @@ router.post('/', (req, res) => {
     
     console.log(`📨 Processing ${events.length} event(s)`);
     
-    // 處理每個事件
     events.forEach(async event => {
         console.log(`🔔 Event: ${event.type}`);
         
         if (event.type === 'follow') {
-            // 新好友加入
-            const userId = event.source.userId;
-            console.log(`👋 New follower: ${userId}`);
-            
             await replyMessage(event.replyToken, `🎉 感謝您加入小安智能助理！
 
 🍹 LINE 餐廳候補位系統
@@ -97,10 +95,8 @@ router.post('/', (req, res) => {
 輸入關鍵字操作～`);
             
         } else if (event.type === 'message' && event.message.type === 'text') {
-            // 收到文字訊息
-            const userId = event.source.userId;
             const text = event.message.text;
-            console.log(`💬 Message from ${userId}: ${text}`);
+            console.log(`💬 Message: ${text}`);
             
             await replyMessage(event.replyToken, `✅ 收到訊息：${text}\n\n小咪 LINE 餐廳候補位系統正在運作中！`);
         }
