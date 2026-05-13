@@ -1,9 +1,21 @@
 /**
- * LINE 餐廳候補位系統 - Webhook 處理器（最簡化版）
+ * LINE 餐廳候補位系統 - Webhook 處理器
  */
 
+const line = require('@line/bot-sdk');
 const express = require('express');
 const router = express.Router();
+
+const lineConfig = require('../../config/line');
+
+// =====================================================
+// LINE Client
+// =====================================================
+
+const lineClient = new line.Client({
+    channelAccessToken: lineConfig.messagingApi.accessToken,
+    channelSecret: lineConfig.messagingApi.channelSecret,
+});
 
 // =====================================================
 // LINE Webhook 路由
@@ -25,14 +37,52 @@ router.post('/', (req, res) => {
     
     console.log(`📨 Processing ${events.length} event(s)`);
     
-    // 簡單處理每個事件
-    events.forEach(event => {
+    // 處理每個事件
+    events.forEach(async event => {
         console.log(`🔔 Event: ${event.type}`);
         
         if (event.type === 'follow') {
-            console.log(`👋 New follower: ${event.source.userId}`);
-        } else if (event.type === 'message') {
-            console.log(`💬 Message: ${event.message.text}`);
+            // 新好友加入
+            const userId = event.source.userId;
+            console.log(`👋 New follower: ${userId}`);
+            
+            // 發送歡迎訊息
+            try {
+                await lineClient.replyMessage(event.replyToken, {
+                    type: 'text',
+                    text: `🎉 感謝您加入小安智能助理！
+
+🍹 LINE 餐廳候補位系統
+
+請選擇操作：
+🔢 加入排隊
+📋 我的排隊
+📅 線上預約
+❓ 幫助
+
+輸入關鍵字操作～`,
+                });
+                console.log('✅ Welcome message sent');
+            } catch (error) {
+                console.error('❌ Welcome message failed:', error.message);
+            }
+            
+        } else if (event.type === 'message' && event.message.type === 'text') {
+            // 收到文字訊息
+            const userId = event.source.userId;
+            const text = event.message.text;
+            console.log(`💬 Message from ${userId}: ${text}`);
+            
+            // 發送回覆
+            try {
+                await lineClient.replyMessage(event.replyToken, {
+                    type: 'text',
+                    text: `✅ 收到訊息：${text}\n\n小咪 LINE 餐廳候補位系統正在運作中！`,
+                });
+                console.log('✅ Reply sent');
+            } catch (error) {
+                console.error('❌ Reply failed:', error.message);
+            }
         }
     });
 });
