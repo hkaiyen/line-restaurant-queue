@@ -76,36 +76,26 @@ async function askMiniMax(userMessage) {
         let reply = '';
         
         // Anthropic format: data.content[0].text
-        if (data.content && data.content[0] && data.content[0].text) {
-            reply = data.content[0].text;
-        }
-        // OpenAI format alternative
-        else if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-            reply = data.choices[0].message.content;
-        }
-        // Text directly
-        else if (data.text) {
-            reply = data.text;
-        }
-        // Output field
-        else if (data.output) {
-            reply = typeof data.output === 'string' ? data.output : (data.output.text || JSON.stringify(data.output));
-        }
-        // Raw data check
-        else {
-            console.log('⚠️ Unexpected response format, checking raw data...');
-            console.log('Data keys:', Object.keys(data));
-            console.log('Full data:', JSON.stringify(data));
-            // 嘗試找任何可能有文字的欄位
-            for (let key in data) {
-                if (typeof data[key] === 'string' && data[key].length > 0 && data[key].length < 10000) {
-                    reply = data[key];
+        // MiniMax has: content[0] = thinking, content[1] = actual reply
+        let reply = '';
+        
+        if (data.content && Array.isArray(data.content)) {
+            // 找 type="text" 的項目
+            for (const item of data.content) {
+                if (item.type === 'text' && item.text) {
+                    reply = item.text;
                     break;
                 }
             }
-            if (!reply) {
-                reply = '⚠️ 無法理解，請重新輸入';
+            // 如果沒找到，嘗試 content[1]（通常是回覆）
+            if (!reply && data.content[1] && data.content[1].text) {
+                reply = data.content[1].text;
             }
+        }
+        
+        if (!reply) {
+            console.log('⚠️ No reply found in content');
+            reply = '⚠️ 無法理解，請重新輸入';
         }
         
         console.log('✅ Generated reply:', reply);
