@@ -13,7 +13,7 @@ const lineConfig = require('../../config/line');
 // =====================================================
 
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
-const MINIMAX_API_URL = 'https://api.minimax.chat/v1/text/chatcompletion_pro';
+const MINIMAX_API_URL = 'https://api.minimax.chat/v1/text/chatcompletion_v2';
 
 async function askMiniMax(userMessage) {
     if (!MINIMAX_API_KEY) {
@@ -43,7 +43,7 @@ async function askMiniMax(userMessage) {
                 'Authorization': `Bearer ${MINIMAX_API_KEY}`
             },
             body: JSON.stringify({
-                model: 'MiniMax-Text-01',
+                model: 'MiniMax-M2.5',
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userMessage }
