@@ -4,11 +4,14 @@
 
 require('dotenv').config();
 const express = require('express');
-const lineRoutes = require('./src/line/webhook');
-const appRoutes = require('./src/routes');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// =====================================================
+// JSON Body Parser（重要！）
+// =====================================================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // =====================================================
 // LINE Webhook 路徑
