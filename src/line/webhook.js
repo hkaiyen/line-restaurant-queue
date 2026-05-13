@@ -13,7 +13,7 @@ const lineConfig = require('../../config/line');
 // =====================================================
 
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
-const MINIMAX_API_URL = 'https://api.minimax.chat/v1/text/chatcompletion_v2';
+const MINIMAX_API_URL = 'https://api.minimax.io/v1/text/chatcompletion_v2';
 
 async function askMiniMax(userMessage) {
     if (!MINIMAX_API_KEY) {
@@ -36,7 +36,7 @@ async function askMiniMax(userMessage) {
 請用繁體中文回答，友善且專業。`;
 
     try {
-        const response = await fetch(MINIMAX_API_URL + (MINIMAX_API_URL.includes('?') ? '&' : '?') + 'GroupId=your_group_id', {
+        const response = await fetch(MINIMAX_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
