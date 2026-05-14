@@ -53,22 +53,71 @@ async function getWeather(location = '台北') {
 }
 
 // =====================================================
-// 網路搜尋功能
+// 網路搜尋功能（使用 DuckDuckGo）
 // =====================================================
 
 async function searchWeb(query) {
     try {
+        // 先嘗試知識摘要
         const response = await fetch(
             `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`
         );
         if (!response.ok) return null;
         const data = await response.json();
         
+        // 優先回覆即時資訊
         if (data.AbstractText) {
             return `🔍 ${query}\n\n${data.AbstractText.slice(0, 500)}`;
         }
-        return null;
+        
+        // 如果沒有摘要，回覆相關主題連結
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+            const topics = data.RelatedTopics.slice(0, 5)
+                .filter(t => t.Text)
+                .map(t => t.Text)
+                .join('\n');
+            if (topics) {
+                return `🔍 ${query}\n\n${topics.slice(0, 500)}`;
+            }
+        }
+        
+        // 如果都沒有，回覆搜尋提示
+        return `🔍 ${query}\n\n抱歉，沒有找到相關資訊。\n可以嘗試更精確的關鍵字。`;
     } catch (error) {
+        console.error('❌ Search error:', error.message);
+        return null;
+    }
+}
+
+// =====================================================
+// 即時新聞搜尋（使用 DuckDuckGo）
+// =====================================================
+
+async function searchNews(query) {
+    try {
+        // DuckDuckGo 新聞搜尋
+        const response = await fetch(
+            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}+news&format=json&no_html=1`
+        );
+        if (!response.ok) return null;
+        const data = await response.json();
+        
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+            const newsItems = data.RelatedTopics
+                .filter(t => t.Text && t.FirstURL)
+                .slice(0, 5)
+                .map(t => `📰 ${t.Text}\n   🔗 ${t.FirstURL}`)
+                .join('\n\n');
+            
+            if (newsItems) {
+                return `📰 即時新聞：${query}\n\n${newsItems}`;
+            }
+        }
+        
+        // 沒有新聞結果
+        return `📰 即時新聞：${query}\n\n目前沒有找到相關新聞。\n可以嘗試其他關鍵字。`;
+    } catch (error) {
+        console.error('❌ News search error:', error.message);
         return null;
     }
 }
@@ -261,6 +310,7 @@ async function askMiniMax(userMessage, context = {}) {
     // 偵測特殊指令
     const weatherMatch = text.match(/(?:天氣|weather|氣象)/i);
     const searchMatch = text.match(/(?:搜尋|搜|search|查詢|找)/i);
+    const newsMatch = text.match(/(?:新聞|news|即時新聞)/i);
     const announcementMatch = text.match(/^\/公告\s*/);
     const reminderMatch = text.match(/^\/提醒\s*(.+)/i);
     const todoMatch = text.match(/^待辦|^記事|^todo|^記錄/i);
@@ -326,6 +376,13 @@ async function askMiniMax(userMessage, context = {}) {
             const searchResult = await searchWeb(query);
             if (searchResult) return searchResult;
         }
+    }
+    
+    // 處理即時新聞
+    if (newsMatch) {
+        const query = text.replace(/(?:新聞|news|即時新聞)/gi, '').trim() || '最新消息';
+        const newsResult = await searchNews(query);
+        if (newsResult) return newsResult;
     }
 
     // AI 聊天
