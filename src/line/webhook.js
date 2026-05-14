@@ -315,14 +315,24 @@ router.post('/', (req, res) => {
                 return;
             }
             
-            // 發送到 OpenClaw Gateway
-            const context = { userName, isGroup, groupId, userId };
-            const openClawReply = await sendToOpenClaw(cleanText, context);
-            
-            // 回覆 LINE
+            // 群組模式：先回覆「處理中」避免超時，再用 push 發送完整回覆
             if (isGroup) {
-                await replyMessage(event.replyToken, openClawReply);
+                // 1. 立即回覆「處理中」（使用 replyToken 避免超時）
+                await replyMessage(event.replyToken, '⏳ 小安處理中...');
+                
+                // 2. 非同步發送到 OpenClaw
+                const context = { userName, isGroup, groupId, userId };
+                const openClawReply = await sendToOpenClaw(cleanText, context);
+                
+                // 3. 延遲一點用 push 發送到群組
+                setTimeout(async () => {
+                    await pushMessage(groupId, openClawReply);
+                }, 500);
+                return;
             } else {
+                // 個人模式：直接回覆
+                const context = { userName, isGroup, groupId, userId };
+                const openClawReply = await sendToOpenClaw(cleanText, context);
                 await pushMessage(userId, openClawReply);
             }
         }
