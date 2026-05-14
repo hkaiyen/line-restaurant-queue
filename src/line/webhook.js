@@ -97,25 +97,68 @@ async function searchNews(query) {
     try {
         // DuckDuckGo 新聞搜尋
         const response = await fetch(
-            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}+news&format=json&no_html=1`
+            `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`
         );
         if (!response.ok) return null;
         const data = await response.json();
         
+        // 收集所有結果
+        let allResults = [];
+        
+        // RelatedTopics 通常包含新聞和相關文章
         if (data.RelatedTopics && data.RelatedTopics.length > 0) {
-            const newsItems = data.RelatedTopics
+            const topics = data.RelatedTopics
                 .filter(t => t.Text && t.FirstURL)
+                .slice(0, 10)
+                .map(t => {
+                    // 清理文字，移除 HTML 標籤
+                    const cleanText = t.Text.replace(/<[^>]*>/g, '').trim();
+                    return { text: cleanText, url: t.FirstURL };
+                });
+            allResults = topics;
+        }
+        
+        // 如果有摘要，也加入
+        if (data.AbstractText) {
+            allResults.unshift({ text: data.AbstractText, url: data.AbstractURL || '' });
+        }
+        
+        if (allResults.length > 0) {
+            const newsItems = allResults
                 .slice(0, 5)
-                .map(t => `📰 ${t.Text}\n   🔗 ${t.FirstURL}`)
+                .map((item, i) => {
+                    const urlText = item.url ? `\n   🔗 ${item.url}` : '';
+                    return `📰 ${i + 1}. ${item.text}${urlText}`;
+                })
                 .join('\n\n');
             
-            if (newsItems) {
-                return `📰 即時新聞：${query}\n\n${newsItems}`;
+            return `📰 即時新聞：${query}\n\n${newsItems}\n\n以上資訊來自網路搜尋結果。`;
+        }
+        
+        // 沒有結果時，嘗試更廣泛的搜尋
+        const fallbackResponse = await fetch(
+            `https://api.duckduckgo.com/?q=${encodeURIComponent(query + ' 最新')}&format=json&no_html=1`
+        );
+        if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            if (fallbackData.RelatedTopics && fallbackData.RelatedTopics.length > 0) {
+                const fallbackItems = fallbackData.RelatedTopics
+                    .filter(t => t.Text && t.FirstURL)
+                    .slice(0, 5)
+                    .map((item, i) => {
+                        const cleanText = item.Text.replace(/<[^>]*>/g, '').trim();
+                        return `📰 ${i + 1}. ${cleanText}\n   🔗 ${item.FirstURL}`;
+                    })
+                    .join('\n\n');
+                
+                if (fallbackItems) {
+                    return `📰 即時新聞：${query}\n\n${fallbackItems}\n\n以上資訊來自網路搜尋結果。`;
+                }
             }
         }
         
-        // 沒有新聞結果
-        return `📰 即時新聞：${query}\n\n目前沒有找到相關新聞。\n可以嘗試其他關鍵字。`;
+        // 如果都沒有，回覆提示
+        return `📰 即時新聞：${query}\n\n目前沒有找到相關新聞。\n可以嘗試更精確的關鍵字，例如：\n• 財經新聞\n• 科技新聞\n• 運動新聞\n• 國際新聞`;
     } catch (error) {
         console.error('❌ News search error:', error.message);
         return null;
@@ -310,7 +353,7 @@ async function askMiniMax(userMessage, context = {}) {
     // 偵測特殊指令
     const weatherMatch = text.match(/(?:天氣|weather|氣象)/i);
     const searchMatch = text.match(/(?:搜尋|搜|search|查詢|找)/i);
-    const newsMatch = text.match(/(?:新聞|news|即時新聞)/i);
+    const newsMatch = text.match(/(?:新聞|news|即時|今日|頭條)/i);
     const announcementMatch = text.match(/^\/公告\s*/);
     const reminderMatch = text.match(/^\/提醒\s*(.+)/i);
     const todoMatch = text.match(/^待辦|^記事|^todo|^記錄/i);
@@ -404,7 +447,7 @@ async function askMiniMax(userMessage, context = {}) {
 - 家庭聊天陪伴
 - 天氣查詢（可用 wttr.in API）
 - 網路搜尋（使用 DuckDuckGo，即時資訊）
-- 即時新聞（使用 DuckDuckGo 搜尋）
+- 即時新聞（使用 DuckDuckGo 搜尋，主動提供最新資訊）
 - 家庭公告幫手（用 /公告 [內容] 發送）
 - 提醒設定（用 /提醒 [內容] 設定）
 - 待辦事項管理（用 待辦 新增事項）
@@ -413,6 +456,7 @@ async function askMiniMax(userMessage, context = {}) {
 - 即時資訊、新聞、天氣都使用 DuckDuckGo 搜尋取得
 - 搜尋格式：關鍵字 + site:news 或直接搜尋
 - 老闆永遠叫「老闆」，不要用其他稱呼
+- 當用戶問「有什麼新聞」或「最新消息」時，主動搜尋並回覆
 
 請用繁體中文回答，友善且專業。`;
 
