@@ -13,7 +13,7 @@ const lineConfig = require('../../config/line');
 // =====================================================
 
 // OpenClaw Gateway 設定（透過 localhost.run tunnel）
-const OPENCLAW_URL = process.env.OPENCLAW_URL || 'https://14b9911557e011.lhr.life/v1/chat/completions';
+const OPENCLAW_URL = process.env.OPENCLAW_URL || 'https://d31b75d8c1be2f.lhr.life/v1/chat/completions';
 const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN || '6e27d4f27e30a18584bc529d39dfc75c7f3a5c6cdf3267fc';
 const AGENT_NAME = process.env.AGENT_NAME || 'openclaw/xiao-an';
 
@@ -331,7 +331,7 @@ router.post('/', (req, res) => {
 
 // GET / - Webhook 驗證
 router.get('/', (req, res) => {
-    res.status(200).send('小安智能助理 - OpenClaw 版 Webhook 運作中 ✅\n\nTunnel: https://14b9911557e011.lhr.life');
+    res.status(200).send('小安智能助理 - OpenClaw 版 Webhook 運作中 ✅\n\nTunnel: https://d31b75d8c1be2f.lhr.life');
 });
 
 module.exports = {
