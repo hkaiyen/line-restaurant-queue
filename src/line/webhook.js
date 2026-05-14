@@ -12,9 +12,6 @@ const lineConfig = require('../../config/line');
 // 設定
 // =====================================================
 
-// 家族群組 ID（需要設定）
-const FAMILY_GROUP_ID = process.env.LINE_FAMILY_GROUP_ID || '';
-
 // MiniMax AI 設定
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
 const MINIMAX_API_URL = 'https://api.minimax.io/anthropic/v1/messages';
@@ -168,9 +165,9 @@ async function pushMessage(to, text) {
 // 發送家庭公告
 // =====================================================
 
-async function sendAnnouncement(text, userName = '管理員') {
-    if (!FAMILY_GROUP_ID) {
-        return '⚠️ 家族群組 ID 未設定，無法發送公告';
+async function sendAnnouncement(text, groupId, userName = '管理員') {
+    if (!groupId) {
+        return '⚠️ 群組 ID 無效，無法發送公告';
     }
     
     const announcement = {
@@ -182,7 +179,7 @@ async function sendAnnouncement(text, userName = '管理員') {
     
     const message = `📢 家庭公告\n\n${text}\n\n───\n發送人：${userName}\n時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`;
     
-    const result = await pushMessage(FAMILY_GROUP_ID, message);
+    const result = await pushMessage(groupId, message);
     return result.success ? '✅ 公告已發送' : '❌ 發送失敗';
 }
 
@@ -190,18 +187,23 @@ async function sendAnnouncement(text, userName = '管理員') {
 // 設定提醒
 // =====================================================
 
-function setReminder(time, text, userName = '管理員') {
+function setReminder(time, text, groupId, userName = '管理員') {
     // time 格式：HH:MM 或 "now"（立即）
     const reminder = {
         time: time,
         text: text,
         sender: userName,
+        groupId: groupId,
         created: new Date().toISOString()
     };
     familyData.reminders.push(reminder);
     
     if (time === 'now') {
-        return `⏰ 立即提醒：${text}`;
+        // 立即發送到群組
+        if (groupId) {
+            pushMessage(groupId, `⏰ 提醒：${text}`);
+        }
+        return `⏰ 提醒：${text}`;
     }
     
     return `✅ 提醒已設定：${time} - ${text}`;
@@ -218,9 +220,9 @@ function checkReminders() {
     
     familyData.reminders = familyData.reminders.filter(reminder => {
         if (reminder.time === currentTime) {
-            // 發送提醒
-            if (FAMILY_GROUP_ID) {
-                pushMessage(FAMILY_GROUP_ID, `⏰ 提醒：${reminder.text}`);
+            // 發送提醒到群組
+            if (reminder.groupId) {
+                pushMessage(reminder.groupId, `⏰ 提醒：${reminder.text}`);
             }
             return false; // 移除已發送的提醒
         }
@@ -270,14 +272,14 @@ async function askMiniMax(userMessage, context = {}) {
         if (!content) {
             return '📢 公告指令用法：\n/公告 [公告內容]\n\n範例：/公告 今天晚上8點全家吃飯';
         }
-        return await sendAnnouncement(content, userName);
+        return await sendAnnouncement(content, context.groupId, userName);
     }
     
     // 處理提醒指令
     if (reminderMatch) {
         const reminderText = reminderMatch[1].trim();
         // 簡化版：/提醒 [內容]（預設 時間現在）
-        return setReminder('now', reminderText, userName);
+        return setReminder('now', reminderText, context.groupId, userName);
     }
     
     // 處理待辦指令
@@ -484,6 +486,13 @@ router.post('/', (req, res) => {
             const groupId = event.source?.groupId || null;
             const userId = event.source?.userId || '';
             
+            // 群組訊息：只回覆有提到 @小安 的訊息
+            if (isGroup && !text.includes('@小安') && !text.includes('@小安智能助理')) {
+                console.log('📝 群組訊息但未提及 Bot，忽略');
+                return;
+            }
+            
+            // 取得用戶名稱
             let userName = '家人';
             if (userId) {
                 const profile = await getUserProfile(userId, groupId);
@@ -497,8 +506,11 @@ router.post('/', (req, res) => {
                 return;
             }
             
-            const context = { isGroup, userName, userId };
-            const aiReply = await askMiniMax(text, context);
+            // 移除 mention（@小安、@小安智能助理）再處理
+            const cleanText = text.replace(/@小安智能助理|@小安/g, '').trim();
+            
+            const context = { isGroup, userName, userId, groupId };
+            const aiReply = await askMiniMax(cleanText, context);
             
             if (isGroup) {
                 await replyMessage(event.replyToken, aiReply);
