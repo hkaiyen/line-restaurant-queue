@@ -182,9 +182,10 @@ async function sendToOpenClaw(message, context = {}) {
 [訊息內容]
 ${message}` }
                 ],
-                max_tokens: 2000,
-                temperature: 0.8
-            })
+                max_tokens: 800,  // 限制回覆長度，加快處理速度
+                temperature: 0.7
+            }),
+            signal: AbortSignal.timeout(80000)  // 80秒 timeout（Cloudflare 限制100秒）
         });
 
         console.log('📬 OpenClaw response status:', response.status);
@@ -218,7 +219,13 @@ ${message}` }
         
     } catch (error) {
         console.error('❌ OpenClaw error:', error.message);
-        return `⚠️ 連線錯誤：${error.message}\n\n請確認 localhost.run tunnel 是否正常運作。`;
+        
+        // 處理 timeout（AbortError）
+        if (error.name === 'AbortError' || error.message.includes('timeout')) {
+            return '⏳ 小安還在處理中，請稍後...';  // 告訴用戶等待
+        }
+        
+        return `⚠️ 連線錯誤：${error.message}\n\n請稍後再試。`;
     }
 }
 
