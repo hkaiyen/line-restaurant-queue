@@ -14,6 +14,9 @@ const { queueService, reservationService, notificationService } = require('../se
 // 載入 Repository（用於需要直接存取的場景）
 const repositories = require('../repositories');
 
+// 載入 Flex Messages
+const flexMessages = require('../line/messages/flexMessages');
+
 // =====================================================
 // LIFF 頁面路由（提供靜態 HTML）
 // =====================================================
@@ -343,6 +346,157 @@ router.post('/api/reservations/mark-no-show', async (req, res) => {
 });
 
 // =====================================================
+// 餐廳排隊管理 API
+// =====================================================
+
+// 取得排隊名單
+router.get('/api/restaurants/:id/queue', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.query;
+
+        const restaurant = await repositories.restaurantRepository.getRestaurantById(id);
+        if (!restaurant) {
+            return res.status(404).json({ success: false, error: '找不到餐廳' });
+        }
+
+        const queueList = await repositories.queueRepository.getQueueListByRestaurant(
+            id,
+            status || 'waiting'
+        );
+
+        // 取得消費者名稱
+        const enrichedList = await Promise.all(
+            queueList.map(async (entry) => {
+                const customer = await repositories.customerRepository.getCustomerById(entry.customerId || entry.customer_id);
+                return {
+                    id: entry.id,
+                    queueNumber: entry.queueNumber || entry.queue_number,
+                    partySize: entry.partySize || entry.party_size,
+                    status: entry.status,
+                    joinedAt: entry.joinedAt || entry.joined_at,
+                    calledAt: entry.calledAt || entry.called_at,
+                    customerName: customer?.displayName || customer?.display_name || '未知',
+                    customerPhone: customer?.phone || null,
+                };
+            })
+        );
+
+        res.json({
+            success: true,
+            data: {
+                restaurantId: id,
+                restaurantName: restaurant.name,
+                queueList: enrichedList,
+                total: enrichedList.length,
+                waiting: enrichedList.filter(e => e.status === 'waiting').length,
+                called: enrichedList.filter(e => e.status === 'called').length,
+            },
+        });
+    } catch (error) {
+        console.error('❌ Get restaurant queue error:', error);
+        res.status(500).json({ success: false, error: '取得排隊名單失敗' });
+    }
+});
+
+// 叫下一位
+router.post('/api/restaurants/:id/call-next', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+
+        const restaurant = await repositories.restaurantRepository.getRestaurantById(id);
+        if (!restaurant) {
+            return res.status(404).json({ success: false, error: '找不到餐廳' });
+        }
+
+        const queueEntry = await repositories.queueRepository.callNext(id);
+        if (!queueEntry) {
+            return res.json({
+                success: true,
+                called: false,
+                message: '目前沒有排隊中的消費者',
+            });
+        }
+
+        // 發送 LINE 通知
+        const customer = await repositories.customerRepository.getCustomerById(queueEntry.customerId || queueEntry.customer_id);
+        if (customer?.lineUserId) {
+            try {
+                const lineConfig = require('../../../config/line');
+                const LINE_API_BASE = 'https://api.line.me/v2';
+                const accessToken = lineConfig.messagingApi.accessToken;
+                if (accessToken) {
+                    await fetch(`${LINE_API_BASE}/bot/message/push`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${accessToken}`,
+                        },
+                        body: JSON.stringify({
+                            to: customer.lineUserId,
+                            messages: [{
+                                type: 'flex',
+                                altText: '🎉 輪到您了！',
+                                contents: flexMessages.createCalledFlex({
+                                    ...queueEntry,
+                                    restaurantName: restaurant.name,
+                                }),
+                            }],
+                        }),
+                    });
+                }
+            } catch (notifyError) {
+                console.warn('⚠️ 發送叫號通知失敗：', notifyError.message);
+            }
+        }
+
+        res.json({
+            success: true,
+            called: true,
+            queueEntry: {
+                id: queueEntry.id,
+                queueNumber: queueEntry.queueNumber || queueEntry.queue_number,
+                partySize: queueEntry.partySize || queueEntry.party_size,
+                customerName: customer?.displayName || customer?.display_name || '未知',
+            },
+        });
+    } catch (error) {
+        console.error('❌ Call next error:', error);
+        res.status(500).json({ success: false, error: '叫號失敗' });
+    }
+});
+
+// 取消特定排隊
+router.post('/api/restaurants/:id/queue/:entryId/cancel', async (req, res) => {
+    try {
+        const { id, entryId } = req.params;
+
+        const restaurant = await repositories.restaurantRepository.getRestaurantById(id);
+        if (!restaurant) {
+            return res.status(404).json({ success: false, error: '找不到餐廳' });
+        }
+
+        const queueEntry = await repositories.queueRepository.cancelQueue(entryId);
+        if (!queueEntry) {
+            return res.status(404).json({ success: false, error: '找不到排隊資料或無法取消' });
+        }
+
+        res.json({
+            success: true,
+            message: '已成功取消排隊',
+            queueEntry: {
+                id: queueEntry.id,
+                queueNumber: queueEntry.queueNumber || queueEntry.queue_number,
+            },
+        });
+    } catch (error) {
+        console.error('❌ Cancel queue error:', error);
+        res.status(500).json({ success: false, error: '取消排隊失敗' });
+    }
+});
+
+// =====================================================
 // 通知 API
 // =====================================================
 
@@ -375,5 +529,6 @@ router.get('/api/notifications/:restaurantId', async (req, res) => {
 // =====================================================
 // 匯出
 // =====================================================
+
 
 module.exports = router;
