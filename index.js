@@ -23,7 +23,9 @@ app.use('/webhook', lineWebhook.router);
 // 其他頁面和 API
 // =====================================================
 const appRoutes = require('./src/routes');
+const adminRoutes = require('./src/routes/admin');
 app.use('/', appRoutes);
+app.use('/admin', adminRoutes);
 
 // =====================================================
 // 健康檢查
