@@ -24,8 +24,12 @@ app.use('/webhook', lineWebhook.router);
 // =====================================================
 const appRoutes = require('./src/routes');
 const adminRoutes = require('./src/routes/admin');
-app.use('/', appRoutes);
+
+// 店家管理後台路由（需優先載入，避免被其他路由攔截）
 app.use('/admin', adminRoutes);
+
+// 其他頁面和 API
+app.use('/', appRoutes);
 
 // =====================================================
 // 健康檢查
