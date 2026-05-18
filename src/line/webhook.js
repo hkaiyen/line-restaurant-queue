@@ -258,7 +258,9 @@ router.post('/', (req, res) => {
             const replyToken = event.replyToken;
             const text = event.message.text.trim();
 
-            console.log(`💬 ${userId}: ${text}`);
+
+            console.log(`💬 完整事件: type=${event.type}, source=${JSON.stringify(event.source)}, text=${text}`);
+            console.log(`💬 userId: ${userId}, replyToken exists: ${!!replyToken}`);
 
             if (!userId || !replyToken) {
                 console.log('⚠️ No userId or replyToken');
@@ -273,30 +275,31 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // 直接輸入數字（快速加入）
+            // 直接輸入數字（每次都重新排隊）
             const directNum = parseInt(text, 10);
             if (!isNaN(directNum) && directNum >= 1 && directNum <= 20) {
-                const existingInfo = queueStore.get(userId);
-                if (existingInfo) {
-                    existingInfo.partySize = directNum;
-                    saveQueueData();
-                    await replyText(replyToken, getQueueSuccessText(existingInfo));
-                } else {
-                    const queueNumber = getNextQueueNumber();
-                    queueStore.set(userId, {
-                        userId,
-                        queueNumber,
-                        partySize: directNum,
-                        phone: '0912345678',
-                        joinedAt: new Date().toISOString(),
-                        partySizeConfirmed: true
-                    });
-                    
-                    saveQueueData();
-                    autoCallNext();
-                    
-                    await replyText(replyToken, getQueueSuccessText(queueStore.get(userId)));
+                // 如果已在排隊中，先取消舊的
+                if (queueStore.has(userId)) {
+                    const oldInfo = queueStore.get(userId);
+                    console.log(`🔄 取消舊排隊: 第 ${oldInfo.queueNumber} 號`);
+                    queueStore.delete(userId);
                 }
+                
+                // 加入新排隊
+                const queueNumber = getNextQueueNumber();
+                queueStore.set(userId, {
+                    userId,
+                    queueNumber,
+                    partySize: directNum,
+                    phone: '0912345678',
+                    joinedAt: new Date().toISOString(),
+                    partySizeConfirmed: true
+                });
+                
+                saveQueueData();
+                autoCallNext();
+                
+                await replyText(replyToken, getQueueSuccessText(queueStore.get(userId)));
                 return;
             }
 
