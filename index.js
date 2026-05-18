@@ -41,7 +41,7 @@ app.get('/health', (req, res) => {
 // =====================================================
 // 啟動伺服器
 // =====================================================
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🍹 LINE 餐廳候補位系統已啟動`);
     console.log(`📍 監聽 port: ${PORT}`);
     console.log(`🔗 Webhook URL: /webhook`);
