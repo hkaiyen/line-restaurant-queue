@@ -106,7 +106,8 @@ function getPositionAhead(queueNumber) {
 function getHelpText() {
     return `🍹 LINE 餐廳候補位系統
 
-🔢 加入排隊 - 輸入「排隊」
+🔢 直接輸入人數 - 快速加入排隊
+🔢 正式加入 - 輸入「排隊」
 📋 查詢狀態 - 輸入「查詢」
 ❌ 取消排隊 - 輸入「取消」
 ❓ 幫助 - 輸入「幫助」
@@ -216,6 +217,29 @@ router.post('/', (req, res) => {
             // ---------- 幫助 ----------
             if (upperText === '幫助' || upperText === 'HELP') {
                 await replyText(replyToken, getHelpText());
+                return;
+            }
+
+            // ---------- 直接輸入數字（快速加入排隊）----------
+            const directNum = parseInt(text, 10);
+            if (!isNaN(directNum) && directNum >= 1 && directNum <= 20) {
+                // 只有在非排隊流程中才能直接加入
+                if (!queueStore.has(userId)) {
+                    const queueNumber = getNextQueueNumber();
+                    queueStore.set(userId, {
+                        queueNumber,
+                        partySize: directNum,
+                        phone: '0912345678',
+                        joinedAt: new Date(),
+                        partySizeConfirmed: true
+                    });
+                    await replyText(replyToken, getQueueSuccessText(queueStore.get(userId)));
+                } else {
+                    // 已在排隊中，更新人數
+                    const info = queueStore.get(userId);
+                    info.partySize = directNum;
+                    await replyText(replyToken, getQueueSuccessText(info));
+                }
                 return;
             }
 
