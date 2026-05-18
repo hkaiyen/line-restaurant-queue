@@ -1,11 +1,10 @@
 /**
- * LINE 餐廳候補位系統 - Webhook 入口（簡化版，記憶體儲存）
+ * LINE 餐廳候補位系統 - Webhook 入口（記憶體版）
  * 
  * 功能：
- * 1. 排隊領號
- * 2. 查詢排隊狀態（顯示目前叫號 + 等候組數）
- * 3. 取消排隊
- * 4. 管理員叫號功能
+ * 1. 直接輸入人數快速加入排隊
+ * 2. 自動叫號（加入後自動叫下一個）
+ * 3. 查詢顯示目前叫號 + 等候組數
  */
 
 const express = require('express');
@@ -67,7 +66,7 @@ async function pushMessage(userId, text) {
 }
 
 // =====================================================
-// 排隊狀態（全域記憶體儲存）
+// 排隊狀態（全域記憶體）
 // =====================================================
 
 let currentCalledNumber = null; // 目前叫到的號碼
@@ -75,17 +74,11 @@ let nextQueueNumber = 1;         // 下一個要發的號碼
 
 const queueStore = new Map(); // userId -> { queueNumber, partySize, phone, joinedAt, partySizeConfirmed }
 
-// Debug: 定時輸出 queueStore 狀態
-setInterval(() => {
-    console.log(`[${new Date().toISOString()}] QueueStore 狀態: ${queueStore.size} 組, nextQueueNumber: ${nextQueueNumber}, calledNumber: ${currentCalledNumber}`);
-}, 60000); // 每分鐘輸出一次
-
 // 取得下一個排隊號碼
 function getNextQueueNumber() {
     const num = nextQueueNumber;
     nextQueueNumber++;
-    if (nextQueueNumber > 99) nextQueueNumber = 1; // 循環回 1
-    console.log(`🔢 發出新號碼: ${num}, 下一個將是: ${nextQueueNumber}`);
+    if (nextQueueNumber > 99) nextQueueNumber = 1;
     return num;
 }
 
@@ -94,15 +87,25 @@ function getWaitingCount() {
     return queueStore.size;
 }
 
-// 計算使用者前方還有幾組
-function getPositionAhead(queueNumber) {
-    let position = 0;
-    for (const [userId, info] of queueStore) {
-        if (info.queueNumber < queueNumber) {
-            position++;
+// 自動叫下一號
+function autoCallNext() {
+    if (queueStore.size === 0) {
+        currentCalledNumber = null;
+        return null;
+    }
+    
+    // 找出 queueNumber 最小的
+    let earliestUserId = null;
+    let earliestNum = Infinity;
+    for (const [uid, info] of queueStore) {
+        if (info.queueNumber < earliestNum) {
+            earliestNum = info.queueNumber;
+            earliestUserId = uid;
         }
     }
-    return position;
+    
+    currentCalledNumber = earliestNum;
+    return earliestUserId;
 }
 
 // =====================================================
@@ -156,16 +159,26 @@ function getQueryText(queueInfo) {
 }
 
 function getStatusBoardText() {
-    return `📢 安安餐廳 - 排隊狀態公告
+    return `📢 安安餐廳 - 排隊狀態
 
 📊 目前叫號：第 ${currentCalledNumber || '-'} 號
 📋 總等候組數：${getWaitingCount()} 組
 
-${currentCalledNumber ? '✅ 請「第 ' + currentCalledNumber + ' 號」顧客準備入座！' : '⏳ 即將開始叫號...'}
+${currentCalledNumber ? '✅ 請「第 ' + currentCalledNumber + ' 號」顧客準備入座！' : '⏳ 等待叫號中...'}
 
 ================================
-🔢 輸入「排隊」加入排隊
+🔢 輸入人數直接加入排隊
 📋 輸入「查詢」查看個人狀態`;
+}
+
+function getPositionAhead(queueNumber) {
+    let position = 0;
+    for (const [userId, info] of queueStore) {
+        if (info.queueNumber < queueNumber) {
+            position++;
+        }
+    }
+    return position;
 }
 
 // =====================================================
@@ -175,7 +188,6 @@ ${currentCalledNumber ? '✅ 請「第 ' + currentCalledNumber + ' 號」顧客�
 router.post('/', (req, res) => {
     console.log('📨 Webhook received');
     
-    // 回應 LINE 確認收到（避免 timeout）
     res.status(200).send('OK');
 
     const events = req.body?.events;
@@ -194,10 +206,9 @@ router.post('/', (req, res) => {
 
 🍹 LINE 餐廳候補位系統
 
-🔢 加入排隊 - 輸入「排隊」
+🔢 直接輸入人數 - 快速加入排隊
 📋 查詢狀態 - 輸入「查詢」
 ❌ 取消排隊 - 輸入「取消」
-❓ 幫助 - 輸入「幫助」
 
 ================================
 歡迎使用！`);
@@ -218,7 +229,6 @@ router.post('/', (req, res) => {
             }
 
             const upperText = text.toUpperCase();
-            const originalText = text;
 
             // ---------- 幫助 ----------
             if (upperText === '幫助' || upperText === 'HELP') {
@@ -226,11 +236,15 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // ---------- 直接輸入數字（快速加入排隊）----------
+            // ---------- 直接輸入數字（快速加入） ----------
             const directNum = parseInt(text, 10);
             if (!isNaN(directNum) && directNum >= 1 && directNum <= 20) {
-                // 只有在非排隊流程中才能直接加入
-                if (!queueStore.has(userId)) {
+                // 檢查是否已在排隊中
+                const existingInfo = queueStore.get(userId);
+                if (existingInfo) {
+                    existingInfo.partySize = directNum;
+                    await replyText(replyToken, getQueueSuccessText(existingInfo));
+                } else {
                     const queueNumber = getNextQueueNumber();
                     queueStore.set(userId, {
                         queueNumber,
@@ -239,54 +253,16 @@ router.post('/', (req, res) => {
                         joinedAt: new Date(),
                         partySizeConfirmed: true
                     });
+                    
+                    // 加入後自動叫下一個
+                    const calledUserId = autoCallNext();
+                    
                     await replyText(replyToken, getQueueSuccessText(queueStore.get(userId)));
-                } else {
-                    // 已在排隊中，更新人數
-                    const info = queueStore.get(userId);
-                    info.partySize = directNum;
-                    await replyText(replyToken, getQueueSuccessText(info));
                 }
                 return;
             }
 
-            // ---------- 叫號（管理員）----------
-            if (upperText === '叫號' || upperText === 'CALL') {
-                if (queueStore.size === 0) {
-                    await replyText(replyToken, '📭 目前沒有人在排隊');
-                    return;
-                }
-                
-                // 找出最早的（queueNumber 最小的）
-                let earliestUserId = null;
-                let earliestNum = Infinity;
-                for (const [uid, info] of queueStore) {
-                    if (info.queueNumber < earliestNum) {
-                        earliestNum = info.queueNumber;
-                        earliestUserId = uid;
-                    }
-                }
-                
-                if (earliestUserId) {
-                    currentCalledNumber = earliestNum;
-                    const calledInfo = queueStore.get(earliestUserId);
-                    await replyText(replyToken, 
-`📢 叫號完成！
-
-🔢 第 ${currentCalledNumber} 號
-👥 ${calledInfo.partySize} 人
-
-請準備入座，謝謝！`);
-                }
-                return;
-            }
-
-            // ---------- 看整體狀態 ----------
-            if (upperText === '狀態' || upperText === 'STATUS') {
-                await replyText(replyToken, getStatusBoardText());
-                return;
-            }
-
-            // ---------- 排隊 ----------
+            // ---------- 排隊（傳統流程） ----------
             if (upperText === '排隊' || upperText === '加入' || upperText === 'JOIN') {
                 const queueNumber = getNextQueueNumber();
                 queueStore.set(userId, {
@@ -298,8 +274,7 @@ router.post('/', (req, res) => {
                 await replyText(replyToken, 
 `🔢 請問幾位用餐？
 
-請直接輸入數字（例如：3）
-或輸入「取消」取消排隊`);
+請直接輸入數字（例如：3）`);
                 return;
             }
 
@@ -310,7 +285,10 @@ router.post('/', (req, res) => {
                 if (!isNaN(num) && num >= 1 && num <= 20) {
                     queueInfo.partySize = num;
                     queueInfo.partySizeConfirmed = true;
-                    // 這裡給的號碼是確定的
+                    
+                    // 加入後自動叫下一個
+                    autoCallNext();
+                    
                     await replyText(replyToken, getQueueSuccessText(queueInfo));
                 } else {
                     await replyText(replyToken, '⚠️ 請輸入有效人數（1-20）');
@@ -324,7 +302,7 @@ router.post('/', (req, res) => {
                 if (info) {
                     await replyText(replyToken, getQueryText(info));
                 } else {
-                    await replyText(replyToken, '📭 您目前沒有排隊記錄\n\n輸入「排隊」開始排隊！');
+                    await replyText(replyToken, getStatusBoardText());
                 }
                 return;
             }
@@ -345,8 +323,26 @@ router.post('/', (req, res) => {
                 return;
             }
 
+            // ---------- 叫號（手動） ----------
+            if (upperText === '叫號' || upperText === 'CALL') {
+                const calledUserId = autoCallNext();
+                if (calledUserId) {
+                    const calledInfo = queueStore.get(calledUserId);
+                    await replyText(replyToken, 
+`📢 叫號完成！
+
+🔢 第 ${currentCalledNumber} 號
+👥 ${calledInfo.partySize} 人
+
+請準備入座，謝謝！`);
+                } else {
+                    await replyText(replyToken, '📭 目前沒有人在排隊');
+                }
+                return;
+            }
+
             // ---------- 未知訊息 ----------
-            await replyText(replyToken, getHelpText());
+            await replyText(replyToken, getStatusBoardText());
             return;
         }
     });
@@ -357,6 +353,11 @@ router.get('/', (req, res) => {
     res.json({
         success: true,
         message: 'LINE 餐廳候補位系統 Webhook 運作中 ✅',
+        queueStatus: {
+            currentCalled: currentCalledNumber,
+            totalWaiting: getWaitingCount(),
+            nextNumber: nextQueueNumber
+        },
         timestamp: new Date().toISOString(),
     });
 });
