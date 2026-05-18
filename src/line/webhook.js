@@ -77,7 +77,9 @@ function loadQueueData() {
                     queueStore.set(entry.userId, entry);
                 }
             }
-            console.log(`📂 資料載入成功: ${queueStore.size} 組, nextNumber: ${nextQueueNumber}, called: ${currentCalledNumber}`);
+            console.log(`📂 載入: nextNumber=${nextQueueNumber}, called=${currentCalledNumber}, size=${queueStore.size}`);
+        } else {
+            console.log('📂 資料檔案不存在，從頭開始');
         }
     } catch (error) {
         console.error('❌ 載入資料失敗:', error.message);
@@ -93,7 +95,7 @@ function saveQueueData() {
             savedAt: new Date().toISOString()
         };
         fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-        console.log(`💾 資料儲存成功: ${queueStore.size} 組`);
+        console.log(`💾 儲存: nextNumber=${nextQueueNumber}, called=${currentCalledNumber}, size=${queueStore.size}`);
     } catch (error) {
         console.error('❌ 儲存資料失敗:', error.message);
     }
@@ -102,14 +104,18 @@ function saveQueueData() {
 // 啟動時載入資料
 loadQueueData();
 
+console.log(`🚀 啟動後初始狀態: nextQueueNumber=${nextQueueNumber}, currentCalled=${currentCalledNumber}, queueSize=${queueStore.size}`);
+
 // =====================================================
 // 取得下一個排隊號碼
 // =====================================================
 
 function getNextQueueNumber() {
     const num = nextQueueNumber;
+    console.log(`🔢 getNextQueueNumber: 取出 ${num}, 之後 nextQueueNumber 變成 ${nextQueueNumber + 1}`);
     nextQueueNumber++;
     if (nextQueueNumber > 99) nextQueueNumber = 1;
+    saveQueueData(); // 立即儲存
     return num;
 }
 
