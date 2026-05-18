@@ -179,7 +179,8 @@ function getQueueSuccessText(queueInfo) {
 
 ================================
 📋 輸入「2」查詢
-❌ 輸入「3」取消`;
+❌ 輸入「3」取消
+🔙 輸入「4」回主選單`;
 }
 
 function getQueryText(queueInfo) {
@@ -192,7 +193,9 @@ function getQueryText(queueInfo) {
 
 📊 目前叫號：第 ${currentCalledNumber || '-'} 號
 ⏳ 您前方等候：${positionAhead} 組
-📋 總等候組數：${getWaitingCount()} 組`;
+📋 總等候組數：${getWaitingCount()} 組
+
+🔙 輸入「4」回主選單`;
 }
 
 function getStatusBoardText() {
