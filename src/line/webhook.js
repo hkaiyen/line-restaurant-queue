@@ -1,19 +1,28 @@
 /**
- * LINE 餐廳候補位系統 - Webhook 入口（記憶體版）
+ * LINE 餐廳候補位系統 - Webhook 入口（檔案儲存版）
  * 
  * 功能：
  * 1. 直接輸入人數快速加入排隊
  * 2. 自動叫號（加入後自動叫下一個）
  * 3. 查詢顯示目前叫號 + 等候組數
+ * 4. 資料持久化到檔案（重啟後不消失）
  */
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
 const lineConfig = require('../../config/line');
 
 // LINE API Base
 const LINE_API_BASE = 'https://api.line.me/v2';
+
+// =====================================================
+// 檔案儲存路徑
+// =====================================================
+
+const DATA_FILE = '/tmp/queue_data.json';
 
 // =====================================================
 // LINE 回覆訊息
@@ -44,37 +53,59 @@ async function replyText(replyToken, text) {
     }
 }
 
-async function pushMessage(userId, text) {
-    const accessToken = lineConfig.messagingApi.accessToken;
-    if (!accessToken) return;
+// =====================================================
+// 排隊狀態（全域）
+// =====================================================
 
+let currentCalledNumber = null;
+let nextQueueNumber = 1;
+const queueStore = new Map(); // userId -> { queueNumber, partySize, phone, joinedAt, partySizeConfirmed }
+
+// =====================================================
+// 檔案讀寫
+// =====================================================
+
+function loadQueueData() {
     try {
-        await fetch(`${LINE_API_BASE}/bot/message/push`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-                to: userId,
-                messages: [{ type: 'text', text }],
-            }),
-        });
+        if (fs.existsSync(DATA_FILE)) {
+            const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+            currentCalledNumber = data.currentCalledNumber || null;
+            nextQueueNumber = data.nextQueueNumber || 1;
+            queueStore.clear();
+            if (data.queueEntries) {
+                for (const entry of data.queueEntries) {
+                    queueStore.set(entry.userId, entry);
+                }
+            }
+            console.log(`📂 資料載入成功: ${queueStore.size} 組, nextNumber: ${nextQueueNumber}, called: ${currentCalledNumber}`);
+        }
     } catch (error) {
-        console.error('❌ Push error:', error.message);
+        console.error('❌ 載入資料失敗:', error.message);
     }
 }
 
+function saveQueueData() {
+    try {
+        const data = {
+            currentCalledNumber,
+            nextQueueNumber,
+            queueEntries: Array.from(queueStore.values()),
+            savedAt: new Date().toISOString()
+        };
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+        console.log(`💾 資料儲存成功: ${queueStore.size} 組`);
+    } catch (error) {
+        console.error('❌ 儲存資料失敗:', error.message);
+    }
+}
+
+// 啟動時載入資料
+loadQueueData();
+
 // =====================================================
-// 排隊狀態（全域記憶體）
-// =====================================================
-
-let currentCalledNumber = null; // 目前叫到的號碼
-let nextQueueNumber = 1;         // 下一個要發的號碼
-
-const queueStore = new Map(); // userId -> { queueNumber, partySize, phone, joinedAt, partySizeConfirmed }
-
 // 取得下一個排隊號碼
+// =====================================================
+
 function getNextQueueNumber() {
     const num = nextQueueNumber;
     nextQueueNumber++;
@@ -91,10 +122,10 @@ function getWaitingCount() {
 function autoCallNext() {
     if (queueStore.size === 0) {
         currentCalledNumber = null;
+        saveQueueData();
         return null;
     }
     
-    // 找出 queueNumber 最小的
     let earliestUserId = null;
     let earliestNum = Infinity;
     for (const [uid, info] of queueStore) {
@@ -105,7 +136,19 @@ function autoCallNext() {
     }
     
     currentCalledNumber = earliestNum;
+    saveQueueData();
     return earliestUserId;
+}
+
+// 計算前方等候組數
+function getPositionAhead(queueNumber) {
+    let position = 0;
+    for (const [userId, info] of queueStore) {
+        if (info.queueNumber < queueNumber) {
+            position++;
+        }
+    }
+    return position;
 }
 
 // =====================================================
@@ -171,16 +214,6 @@ ${currentCalledNumber ? '✅ 請「第 ' + currentCalledNumber + ' 號」顧客�
 📋 輸入「查詢」查看個人狀態`;
 }
 
-function getPositionAhead(queueNumber) {
-    let position = 0;
-    for (const [userId, info] of queueStore) {
-        if (info.queueNumber < queueNumber) {
-            position++;
-        }
-    }
-    return position;
-}
-
 // =====================================================
 // Webhook POST 路由
 // =====================================================
@@ -199,7 +232,6 @@ router.post('/', (req, res) => {
     events.forEach(async (event) => {
         console.log(`🔔 Event: ${event.type}`);
 
-        // follow 事件
         if (event.type === 'follow') {
             await replyText(event.replyToken, 
 `🎉 感謝您加入！
@@ -215,7 +247,6 @@ router.post('/', (req, res) => {
             return;
         }
 
-        // 訊息事件
         if (event.type === 'message' && event.message?.type === 'text') {
             const userId = event.source?.userId;
             const replyToken = event.replyToken;
@@ -230,47 +261,50 @@ router.post('/', (req, res) => {
 
             const upperText = text.toUpperCase();
 
-            // ---------- 幫助 ----------
+            // 幫助
             if (upperText === '幫助' || upperText === 'HELP') {
                 await replyText(replyToken, getHelpText());
                 return;
             }
 
-            // ---------- 直接輸入數字（快速加入） ----------
+            // 直接輸入數字（快速加入）
             const directNum = parseInt(text, 10);
             if (!isNaN(directNum) && directNum >= 1 && directNum <= 20) {
-                // 檢查是否已在排隊中
                 const existingInfo = queueStore.get(userId);
                 if (existingInfo) {
                     existingInfo.partySize = directNum;
+                    saveQueueData();
                     await replyText(replyToken, getQueueSuccessText(existingInfo));
                 } else {
                     const queueNumber = getNextQueueNumber();
                     queueStore.set(userId, {
+                        userId,
                         queueNumber,
                         partySize: directNum,
                         phone: '0912345678',
-                        joinedAt: new Date(),
+                        joinedAt: new Date().toISOString(),
                         partySizeConfirmed: true
                     });
                     
-                    // 加入後自動叫下一個
-                    const calledUserId = autoCallNext();
+                    saveQueueData();
+                    autoCallNext();
                     
                     await replyText(replyToken, getQueueSuccessText(queueStore.get(userId)));
                 }
                 return;
             }
 
-            // ---------- 排隊（傳統流程） ----------
+            // 排隊（傳統流程）
             if (upperText === '排隊' || upperText === '加入' || upperText === 'JOIN') {
                 const queueNumber = getNextQueueNumber();
                 queueStore.set(userId, {
+                    userId,
                     queueNumber,
                     partySize: 2,
                     phone: '0912345678',
-                    joinedAt: new Date()
+                    joinedAt: new Date().toISOString()
                 });
+                saveQueueData();
                 await replyText(replyToken, 
 `🔢 請問幾位用餐？
 
@@ -278,17 +312,15 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // ---------- 處理數量回覆 ----------
+            // 處理數量回覆
             const queueInfo = queueStore.get(userId);
             if (queueInfo && !queueInfo.partySizeConfirmed) {
                 const num = parseInt(text, 10);
                 if (!isNaN(num) && num >= 1 && num <= 20) {
                     queueInfo.partySize = num;
                     queueInfo.partySizeConfirmed = true;
-                    
-                    // 加入後自動叫下一個
+                    saveQueueData();
                     autoCallNext();
-                    
                     await replyText(replyToken, getQueueSuccessText(queueInfo));
                 } else {
                     await replyText(replyToken, '⚠️ 請輸入有效人數（1-20）');
@@ -296,7 +328,7 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // ---------- 查詢 ----------
+            // 查詢
             if (upperText === '查詢' || upperText === '我的號碼' || upperText === '狀態') {
                 const info = queueStore.get(userId);
                 if (info) {
@@ -307,11 +339,12 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // ---------- 取消 ----------
+            // 取消
             if (upperText === '取消') {
                 if (queueStore.has(userId)) {
                     const info = queueStore.get(userId);
                     queueStore.delete(userId);
+                    saveQueueData();
                     await replyText(replyToken, 
 `✅ 已取消排隊（第 ${info.queueNumber} 號）
 
@@ -323,7 +356,7 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // ---------- 叫號（手動） ----------
+            // 叫號（手動）
             if (upperText === '叫號' || upperText === 'CALL') {
                 const calledUserId = autoCallNext();
                 if (calledUserId) {
@@ -341,7 +374,7 @@ router.post('/', (req, res) => {
                 return;
             }
 
-            // ---------- 未知訊息 ----------
+            // 未知訊息
             await replyText(replyToken, getStatusBoardText());
             return;
         }
