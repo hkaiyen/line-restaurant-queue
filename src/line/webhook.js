@@ -73,13 +73,19 @@ async function pushMessage(userId, text) {
 let currentCalledNumber = null; // 目前叫到的號碼
 let nextQueueNumber = 1;         // 下一個要發的號碼
 
-const queueStore = new Map(); // userId -> { queueNumber, partySize, phone, joinedAt }
+const queueStore = new Map(); // userId -> { queueNumber, partySize, phone, joinedAt, partySizeConfirmed }
+
+// Debug: 定時輸出 queueStore 狀態
+setInterval(() => {
+    console.log(`[${new Date().toISOString()}] QueueStore 狀態: ${queueStore.size} 組, nextQueueNumber: ${nextQueueNumber}, calledNumber: ${currentCalledNumber}`);
+}, 60000); // 每分鐘輸出一次
 
 // 取得下一個排隊號碼
 function getNextQueueNumber() {
     const num = nextQueueNumber;
     nextQueueNumber++;
     if (nextQueueNumber > 99) nextQueueNumber = 1; // 循環回 1
+    console.log(`🔢 發出新號碼: ${num}, 下一個將是: ${nextQueueNumber}`);
     return num;
 }
 
